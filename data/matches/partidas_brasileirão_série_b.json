@@ -1,0 +1,127 @@
+{
+  "_meta": {
+    "campeonato": "Brasileirão Série B",
+    "coletado_em": "2026-05-13T20:52:06.628903",
+    "total": 20
+  },
+  "São Bernardo x América-MG": {
+    "link": "https://www.apwin.com/br/jogo/america-mineiro-sao-bernardo/buNEiI/",
+    "slug": "buNEiI",
+    "home": "São Bernardo",
+    "away": "América-MG"
+  },
+  "Operário x Náutico": {
+    "link": "https://www.apwin.com/br/jogo/operario-pr-nautico/dAqnTh/",
+    "slug": "dAqnTh",
+    "home": "Operário",
+    "away": "Náutico"
+  },
+  "Goiás x Botafogo-SP": {
+    "link": "https://www.apwin.com/br/jogo/goias-botafogo-sp/btPPpy/",
+    "slug": "btPPpy",
+    "home": "Goiás",
+    "away": "Botafogo-SP"
+  },
+  "Cuiabá x Novorizontino": {
+    "link": "https://www.apwin.com/br/jogo/cuiaba-novorizontino/dzUWyY/",
+    "slug": "dzUWyY",
+    "home": "Cuiabá",
+    "away": "Novorizontino"
+  },
+  "Athletic-MG x Juventude": {
+    "link": "https://www.apwin.com/br/jogo/juventude-athletic-club/dASLCq/",
+    "slug": "dASLCq",
+    "home": "Athletic-MG",
+    "away": "Juventude"
+  },
+  "Vila Nova x Avaí": {
+    "link": "https://www.apwin.com/br/jogo/avai-vila-nova/bulgNG/",
+    "slug": "bulgNG",
+    "home": "Vila Nova",
+    "away": "Avaí"
+  },
+  "Criciúma x Atlético-GO": {
+    "link": "https://www.apwin.com/br/jogo/atletico-go-criciuma/btnsan/",
+    "slug": "btnsan",
+    "home": "Criciúma",
+    "away": "Atlético-GO"
+  },
+  "Ceará x Fortaleza": {
+    "link": "https://www.apwin.com/br/jogo/ceara-fortaleza/btIJjk/",
+    "slug": "btIJjk",
+    "home": "Ceará",
+    "away": "Fortaleza"
+  },
+  "Sport Recife x CRB": {
+    "link": "https://www.apwin.com/br/jogo/sport-recife-crb/brGahc/",
+    "slug": "brGahc",
+    "home": "Sport Recife",
+    "away": "CRB"
+  },
+  "Ponte Preta x Londrina": {
+    "link": "https://www.apwin.com/br/jogo/ponte-preta-londrina/bvbPKr/",
+    "slug": "bvbPKr",
+    "home": "Ponte Preta",
+    "away": "Londrina"
+  },
+  "Londrina x São Bernardo": {
+    "link": "https://www.apwin.com/br/jogo/londrina-sao-bernardo/dzNQJM/",
+    "slug": "dzNQJM",
+    "home": "Londrina",
+    "away": "São Bernardo"
+  },
+  "Novorizontino x Botafogo-SP": {
+    "link": "https://www.apwin.com/br/jogo/botafogo-sp-novorizontino/dAjigA/",
+    "slug": "dAjigA",
+    "home": "Novorizontino",
+    "away": "Botafogo-SP"
+  },
+  "Avaí x Fortaleza": {
+    "link": "https://www.apwin.com/br/jogo/fortaleza-avai/btWUQO/",
+    "slug": "btWUQO",
+    "home": "Avaí",
+    "away": "Fortaleza"
+  },
+  "Náutico x América-MG": {
+    "link": "https://www.apwin.com/br/jogo/america-mineiro-nautico/buNEcZ/",
+    "slug": "buNEcZ",
+    "home": "Náutico",
+    "away": "América-MG"
+  },
+  "Juventude x Criciúma": {
+    "link": "https://www.apwin.com/br/jogo/criciuma-juventude/dzltoX/",
+    "slug": "dzltoX",
+    "home": "Juventude",
+    "away": "Criciúma"
+  },
+  "CRB x Operário": {
+    "link": "https://www.apwin.com/br/jogo/crb-operario-pr/dzszfH/",
+    "slug": "dzszfH",
+    "home": "CRB",
+    "away": "Operário"
+  },
+  "Ceará x Atlético-GO": {
+    "link": "https://www.apwin.com/br/jogo/atletico-go-ceara/btnrKS/",
+    "slug": "btnrKS",
+    "home": "Ceará",
+    "away": "Atlético-GO"
+  },
+  "Ponte Preta x Sport Recife": {
+    "link": "https://www.apwin.com/br/jogo/sport-recife-ponte-preta/brFZRQ/",
+    "slug": "brFZRQ",
+    "home": "Ponte Preta",
+    "away": "Sport Recife"
+  },
+  "Athletic-MG x Cuiabá": {
+    "link": "https://www.apwin.com/br/jogo/cuiaba-athletic-club/dzUWOW/",
+    "slug": "dzUWOW",
+    "home": "Athletic-MG",
+    "away": "Cuiabá"
+  },
+  "Goiás x Vila Nova": {
+    "link": "https://www.apwin.com/br/jogo/goias-vila-nova/btPPpq/",
+    "slug": "btPPpq",
+    "home": "Goiás",
+    "away": "Vila Nova"
+  }
+}

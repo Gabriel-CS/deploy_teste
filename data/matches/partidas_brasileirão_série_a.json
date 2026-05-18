@@ -1,0 +1,127 @@
+{
+  "_meta": {
+    "campeonato": "Brasileirão Série A",
+    "coletado_em": "2026-05-18T08:10:07.593850",
+    "total": 20
+  },
+  "São Paulo x Botafogo": {
+    "link": "https://www.apwin.com/br/jogo/botafogo-sao-paulo/brNfIj/",
+    "slug": "brNfIj",
+    "home": "São Paulo",
+    "away": "Botafogo"
+  },
+  "Vitória x Internacional": {
+    "link": "https://www.apwin.com/br/jogo/internacional-vitoria/btuxBN/",
+    "slug": "btuxBN",
+    "home": "Vitória",
+    "away": "Internacional"
+  },
+  "Mirassol x Fluminense": {
+    "link": "https://www.apwin.com/br/jogo/fluminense-mirassol/bsbrKy/",
+    "slug": "bsbrKy",
+    "home": "Mirassol",
+    "away": "Fluminense"
+  },
+  "Grêmio x Santos": {
+    "link": "https://www.apwin.com/br/jogo/santos-gremio/brrOjR/",
+    "slug": "brrOjR",
+    "home": "Grêmio",
+    "away": "Santos"
+  },
+  "Flamengo x Palmeiras": {
+    "link": "https://www.apwin.com/br/jogo/flamengo-palmeiras/bryUaI/",
+    "slug": "bryUaI",
+    "home": "Flamengo",
+    "away": "Palmeiras"
+  },
+  "Cruzeiro x Chapecoense": {
+    "link": "https://www.apwin.com/br/jogo/cruzeiro-chapecoense/bueaHD/",
+    "slug": "bueaHD",
+    "home": "Cruzeiro",
+    "away": "Chapecoense"
+  },
+  "Remo x Athletico-PR": {
+    "link": "https://www.apwin.com/br/jogo/atletico-pr-remo/bsDOXM/",
+    "slug": "bsDOXM",
+    "home": "Remo",
+    "away": "Athletico-PR"
+  },
+  "Corinthians x Atlético-MG": {
+    "link": "https://www.apwin.com/br/jogo/atletico-mineiro-corinthians/bswIOf/",
+    "slug": "bswIOf",
+    "home": "Corinthians",
+    "away": "Atlético-MG"
+  },
+  "Vasco x Bragantino": {
+    "link": "https://www.apwin.com/br/jogo/vasco-da-gama-bragantino/bsSamB/",
+    "slug": "bsSamB",
+    "home": "Vasco",
+    "away": "Bragantino"
+  },
+  "Coritiba x Bahia": {
+    "link": "https://www.apwin.com/br/jogo/bahia-coritiba/bsZgdm/",
+    "slug": "bsZgdm",
+    "home": "Coritiba",
+    "away": "Bahia"
+  },
+  "Athletico-PR x Flamengo": {
+    "link": "https://www.apwin.com/br/jogo/flamengo-atletico-pr/bryUaK/",
+    "slug": "bryUaK",
+    "home": "Athletico-PR",
+    "away": "Flamengo"
+  },
+  "Bragantino x Vitória": {
+    "link": "https://www.apwin.com/br/jogo/bragantino-vitoria/btBDsB/",
+    "slug": "btBDsB",
+    "home": "Bragantino",
+    "away": "Vitória"
+  },
+  "Chapecoense x Remo": {
+    "link": "https://www.apwin.com/br/jogo/chapecoense-remo/busmHM/",
+    "slug": "busmHM",
+    "home": "Chapecoense",
+    "away": "Remo"
+  },
+  "Botafogo x Corinthians": {
+    "link": "https://www.apwin.com/br/jogo/botafogo-corinthians/brNfIn/",
+    "slug": "brNfIn",
+    "home": "Botafogo",
+    "away": "Corinthians"
+  },
+  "Bahia x Grêmio": {
+    "link": "https://www.apwin.com/br/jogo/gremio-bahia/brUlzd/",
+    "slug": "brUlzd",
+    "home": "Bahia",
+    "away": "Grêmio"
+  },
+  "Santos x Coritiba": {
+    "link": "https://www.apwin.com/br/jogo/santos-coritiba/brrOka/",
+    "slug": "brrOka",
+    "home": "Santos",
+    "away": "Coritiba"
+  },
+  "Palmeiras x Cruzeiro": {
+    "link": "https://www.apwin.com/br/jogo/palmeiras-cruzeiro/bspCXB/",
+    "slug": "bspCXB",
+    "home": "Palmeiras",
+    "away": "Cruzeiro"
+  },
+  "Fluminense x São Paulo": {
+    "link": "https://www.apwin.com/br/jogo/fluminense-sao-paulo/bsbrpL/",
+    "slug": "bsbrpL",
+    "home": "Fluminense",
+    "away": "São Paulo"
+  },
+  "Internacional x Vasco": {
+    "link": "https://www.apwin.com/br/jogo/vasco-da-gama-internacional/bsSamA/",
+    "slug": "bsSamA",
+    "home": "Internacional",
+    "away": "Vasco"
+  },
+  "Atlético-MG x Mirassol": {
+    "link": "https://www.apwin.com/br/jogo/atletico-mineiro-mirassol/bswJiO/",
+    "slug": "bswJiO",
+    "home": "Atlético-MG",
+    "away": "Mirassol"
+  }
+}

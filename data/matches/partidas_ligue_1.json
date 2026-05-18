@@ -1,0 +1,127 @@
+{
+  "_meta": {
+    "campeonato": "Ligue 1",
+    "coletado_em": "2026-05-13T08:06:01.729491",
+    "total": 20
+  },
+  "Brest x Strasbourg": {
+    "link": "https://www.apwin.com/br/jogo/strasbourg-brest/reZSG/",
+    "slug": "reZSG",
+    "home": "Brest",
+    "away": "Strasbourg"
+  },
+  "Lens x PSG": {
+    "link": "https://www.apwin.com/br/jogo/psg-lens/ikLAe/",
+    "slug": "ikLAe",
+    "home": "Lens",
+    "away": "PSG"
+  },
+  "Olympique de Marseille x Rennes": {
+    "link": "https://www.apwin.com/br/jogo/rennes-olympique-marseille/qoqVS/",
+    "slug": "qoqVS",
+    "home": "Olympique de Marseille",
+    "away": "Rennes"
+  },
+  "Brest x Angers": {
+    "link": "https://www.apwin.com/br/jogo/angers-sco-brest/qCCDC/",
+    "slug": "qCCDC",
+    "home": "Brest",
+    "away": "Angers"
+  },
+  "Lille x Auxerre": {
+    "link": "https://www.apwin.com/br/jogo/lille-auxerre/dhEdK/",
+    "slug": "dhEdK",
+    "home": "Lille",
+    "away": "Auxerre"
+  },
+  "Paris x PSG": {
+    "link": "https://www.apwin.com/br/jogo/psg-paris/ikLAn/",
+    "slug": "ikLAn",
+    "home": "Paris",
+    "away": "PSG"
+  },
+  "Nantes x Toulouse": {
+    "link": "https://www.apwin.com/br/jogo/toulouse-nantes/qafoo/",
+    "slug": "qafoo",
+    "home": "Nantes",
+    "away": "Toulouse"
+  },
+  "Lyon x Lens": {
+    "link": "https://www.apwin.com/br/jogo/olympique-lyonnais-lens/hIola/",
+    "slug": "hIola",
+    "home": "Lyon",
+    "away": "Lens"
+  },
+  "Nice x Metz": {
+    "link": "https://www.apwin.com/br/jogo/metz-nice/pSZxE/",
+    "slug": "pSZxE",
+    "home": "Nice",
+    "away": "Metz"
+  },
+  "Strasbourg x Monaco": {
+    "link": "https://www.apwin.com/br/jogo/monaco-strasbourg/pqCiD/",
+    "slug": "pqCiD",
+    "home": "Strasbourg",
+    "away": "Monaco"
+  },
+  "Metz x Lorient": {
+    "link": "https://www.apwin.com/br/jogo/metz-lorient/pSZyx/",
+    "slug": "pSZyx",
+    "home": "Metz",
+    "away": "Lorient"
+  },
+  "Auxerre x Nice": {
+    "link": "https://www.apwin.com/br/jogo/nice-auxerre/qJIzS/",
+    "slug": "qJIzS",
+    "home": "Auxerre",
+    "away": "Nice"
+  },
+  "Rennes x Paris": {
+    "link": "https://www.apwin.com/br/jogo/rennes-paris/qorbH/",
+    "slug": "qorbH",
+    "home": "Rennes",
+    "away": "Paris"
+  },
+  "Le Havre x Olympique de Marseille": {
+    "link": "https://www.apwin.com/br/jogo/olympique-marseille-le-havre/qvwSu/",
+    "slug": "qvwSu",
+    "home": "Le Havre",
+    "away": "Olympique de Marseille"
+  },
+  "Monaco x Lille": {
+    "link": "https://www.apwin.com/br/jogo/lille-monaco/dhDXS/",
+    "slug": "dhDXS",
+    "home": "Monaco",
+    "away": "Lille"
+  },
+  "Toulouse x Lyon": {
+    "link": "https://www.apwin.com/br/jogo/olympique-lyonnais-toulouse/hIofr/",
+    "slug": "hIofr",
+    "home": "Toulouse",
+    "away": "Lyon"
+  },
+  "PSG x Brest": {
+    "link": "https://www.apwin.com/br/jogo/psg-brest/ikLuG/",
+    "slug": "ikLuG",
+    "home": "PSG",
+    "away": "Brest"
+  },
+  "Angers x Strasbourg": {
+    "link": "https://www.apwin.com/br/jogo/angers-sco-strasbourg/qCCDz/",
+    "slug": "qCCDz",
+    "home": "Angers",
+    "away": "Strasbourg"
+  },
+  "Lens x Nantes": {
+    "link": "https://www.apwin.com/br/jogo/nantes-lens/qhlkK/",
+    "slug": "qhlkK",
+    "home": "Lens",
+    "away": "Nantes"
+  },
+  "Lyon x Rennes": {
+    "link": "https://www.apwin.com/br/jogo/olympique-lyonnais-rennes/hIoft/",
+    "slug": "hIoft",
+    "home": "Lyon",
+    "away": "Rennes"
+  }
+}

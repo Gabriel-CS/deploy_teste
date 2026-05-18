@@ -1,0 +1,67 @@
+{
+  "_meta": {
+    "campeonato": "Bundesliga",
+    "coletado_em": "2026-05-18T08:05:38.303460",
+    "total": 10
+  },
+  "Heidenheim x Mainz": {
+    "link": "https://www.apwin.com/br/jogo/mainz-05-heidenheim/Hmlcl/",
+    "slug": "Hmlcl",
+    "home": "Heidenheim",
+    "away": "Mainz"
+  },
+  "Freiburg x RB Leipzig": {
+    "link": "https://www.apwin.com/br/jogo/rb-leipzig-freiburg/hucAo/",
+    "slug": "hucAo",
+    "home": "Freiburg",
+    "away": "RB Leipzig"
+  },
+  "Union Berlin x Augsburg": {
+    "link": "https://www.apwin.com/br/jogo/augsburg-union-berlin/IcTUt/",
+    "slug": "IcTUt",
+    "home": "Union Berlin",
+    "away": "Augsburg"
+  },
+  "St. Pauli x Wolfsburg": {
+    "link": "https://www.apwin.com/br/jogo/wolfsburg-st-pauli/zpLrC/",
+    "slug": "zpLrC",
+    "home": "St. Pauli",
+    "away": "Wolfsburg"
+  },
+  "Eintracht Frankfurt x Stuttgart": {
+    "link": "https://www.apwin.com/br/jogo/eintracht-frankfurt-stuttgart/HOImT/",
+    "slug": "HOImT",
+    "home": "Eintracht Frankfurt",
+    "away": "Stuttgart"
+  },
+  "Werder Bremen x Borussia Dortmund": {
+    "link": "https://www.apwin.com/br/jogo/borussia-dortmund-werder-bremen/gYLbW/",
+    "slug": "gYLbW",
+    "home": "Werder Bremen",
+    "away": "Borussia Dortmund"
+  },
+  "Bayer Leverkusen x Hamburgo": {
+    "link": "https://www.apwin.com/br/jogo/bayer-leverkusen-hamburger-sv/hmWJK/",
+    "slug": "hmWJK",
+    "home": "Bayer Leverkusen",
+    "away": "Hamburgo"
+  },
+  "Bayern de Munique x Colônia": {
+    "link": "https://www.apwin.com/br/jogo/bayern-munchen-koln/hfQSL/",
+    "slug": "hfQSL",
+    "home": "Bayern de Munique",
+    "away": "Colônia"
+  },
+  "Borussia M'gladbach x Hoffenheim": {
+    "link": "https://www.apwin.com/br/jogo/hoffenheim-borussia-mgladbach/xnbUj/",
+    "slug": "xnbUj",
+    "home": "Borussia M'gladbach",
+    "away": "Hoffenheim"
+  },
+  "Mainz x Union Berlin": {
+    "link": "https://www.apwin.com/br/jogo/mainz-05-union-berlin/HmkXN/",
+    "slug": "HmkXN",
+    "home": "Mainz",
+    "away": "Union Berlin"
+  }
+}

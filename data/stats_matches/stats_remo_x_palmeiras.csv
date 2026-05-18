@@ -1,0 +1,108 @@
+﻿=== INFORMAÇÕES DA PARTIDA ===
+Campo,Valor
+Mandante,Remo
+Visitante,Palmeiras
+Data/Hora,10/05/2026 16:00
+Estádio,Estádio Evandro Almeida (Banpará Baenão)
+Campeonato,Brasileirão Série A
+
+=== FORMA RECENTE ===
+Equipe,Âmbito,Últimos 5,PPJ
+Remo,Geral,VDDEE,1
+Remo,Casa,DEVDE,1
+Remo,Fora,VDEDD,0.8
+Palmeiras,Geral,EVVEV,2.2
+Palmeiras,Casa,EVVVV,2.6
+Palmeiras,Fora,VEVVD,2
+
+=== ESTATÍSTICAS COMPARADAS: Remo vs Palmeiras ===
+Estatística,Remo - Geral,Remo - Casa,Remo - Fora,Palmeiras - Geral,Palmeiras - Casa,Palmeiras - Fora
+Vence %,14%,17%,13%,71%,86%,57%
+Gols,2.79,2.67,2.88,2.5,2.71,2.29
+Marcados,1.07,1.33,0.88,1.71,2,1.43
+Sofridos,1.71,1.33,2,0.79,0.71,0.86
+Ambas Marcam,50%,67%,38%,64%,71%,57%
+Sem Sofrer,7%,0%,13%,36%,29%,43%
+Sem Marcar,50%,33%,63%,7%,0%,14%
+1º a Marcar,7%,17%,0%,7%,86%,86%
+xG,1.37,1.46,1.3,1.39,1.63,1.15
+xGA,1.55,1.49,1.59,1.47,1.32,1.62
+
+=== ODDS (1X2) ===
+Casa de Apostas,1 (Remo),X (Empate),2 (Palmeiras)
+,4.17,3.57,1.84
+,4.28,3.58,1.78
+,4.53,3.92,1.80
+,4.21,3.73,1.76
+,4.22,3.56,1.82
+,4.23,3.50,1.88
+
+=== CLASSIFICAÇÃO GERAL ===
+#,Equipe,J,V,E,D,GM,GS,SG,Pts,PPJ,Últimos 5
+1,Palmeiras,14,10,3,1,24,11,13,33,2.36,EVVEV
+2,Flamengo,13,8,3,2,26,12,14,27,2.08,EVVVV
+3,Fluminense,15,8,3,4,25,20,5,27,1.80,EDVVD
+4,São Paulo,14,7,3,4,19,13,6,24,1.71,EVDDV
+5,Athletico-PR,14,7,2,5,20,15,5,23,1.64,EVDVD
+6,Bahia,14,6,4,4,20,18,2,22,1.57,DEEDV
+7,Bragantino,14,6,2,6,17,16,1,20,1.43,VDVDV
+8,Coritiba,15,5,5,5,18,19,-1,20,1.33,EDDVE
+9,Vitória,14,5,4,5,18,20,-2,19,1.36,EVDEV
+10,Cruzeiro,15,5,4,6,20,25,-5,19,1.27,VDVVV
+11,Internacional,15,4,6,5,16,16,0,18,1.20,EVEDE
+12,Grêmio,14,4,5,5,15,16,-1,17,1.21,EVDEE
+13,Vasco,14,4,5,5,20,21,-1,17,1.21,EDVED
+14,Botafogo,13,5,2,6,25,26,-1,17,1.31,DEVEV
+15,Atlético-MG,14,5,2,7,17,20,-3,17,1.21,VDDDV
+16,Corinthians,14,3,6,5,10,13,-3,15,1.07,DVEED
+17,Santos,14,3,6,5,19,22,-3,15,1.07,EEDVD
+18,Mirassol,13,3,3,7,15,19,-4,12,0.92,VDVDD
+19,Remo,14,2,5,7,15,24,-9,11,0.79,VDDEE
+20,Chapecoense,13,1,5,7,13,26,-13,8,0.62,DDDDE
+
+=== CLASSIFICAÇÃO EM CASA ===
+#,Equipe,J,V,E,D,GM,GS,SG,Pts,PPJ,Últimos 5
+1,Palmeiras,7,6,1,0,14,5,9,19,2.71,EVVVV
+2,Fluminense,8,6,1,1,15,9,6,19,2.38,EVDVV
+3,Athletico-PR,8,6,1,1,15,5,10,19,2.38,EVVVV
+4,São Paulo,7,5,1,1,13,5,8,16,2.29,EVVDV
+5,Vitória,7,5,1,1,12,3,9,16,2.29,VEVVV
+6,Flamengo,6,4,2,0,13,4,9,14,2.33,EVVVV
+7,Grêmio,6,4,2,0,11,5,6,14,2.33,VEVEV
+8,Vasco,7,4,1,2,11,9,2,13,1.86,VDVVV
+9,Cruzeiro,8,3,3,2,13,10,3,12,1.50,DVVVE
+10,Atlético-MG,6,3,2,1,9,10,-1,11,1.83,DVVVE
+11,Santos,7,3,2,2,10,8,2,11,1.57,DVVDE
+12,Bragantino,7,3,1,3,11,8,3,10,1.43,DVVDD
+13,Bahia,7,2,3,2,11,8,3,9,1.29,DEDVV
+14,Coritiba,7,2,3,2,7,6,1,9,1.29,EVEEV
+15,Internacional,8,2,2,4,7,8,-1,8,1.00,VDEEV
+16,Botafogo,6,2,2,2,12,11,1,8,1.33,DEEVD
+17,Corinthians,7,2,2,3,5,6,-1,8,1.14,VEDED
+18,Mirassol,7,2,2,3,9,10,-1,8,1.14,VDDDE
+19,Chapecoense,8,1,4,3,11,17,-6,7,0.88,DDEDE
+20,Remo,6,1,3,2,8,8,0,6,1.00,DEVDE
+
+=== CLASSIFICAÇÃO FORA DE CASA ===
+#,Equipe,J,V,E,D,GM,GS,SG,Pts,PPJ,Últimos 5
+1,Palmeiras,7,4,2,1,10,6,4,14,2.00,VEVVD
+2,Flamengo,7,4,1,2,13,8,5,13,1.86,VVDEV
+3,Bahia,7,4,1,2,9,10,-1,13,1.86,EDVDV
+4,Coritiba,8,3,2,3,11,13,-2,11,1.38,DDEDV
+5,Bragantino,7,3,1,3,6,8,-2,10,1.43,VDVDE
+6,Internacional,7,2,4,1,9,8,1,10,1.43,EEVVD
+7,Botafogo,7,3,0,4,13,15,-2,9,1.29,VVDVD
+8,Fluminense,7,2,2,3,10,11,-1,8,1.14,DVEDV
+9,São Paulo,7,2,2,3,6,8,-2,8,1.14,DDEDV
+10,Cruzeiro,7,2,1,4,7,15,-8,7,1.00,VVDDD
+11,Corinthians,7,1,4,2,5,7,-2,7,1.00,DEDEE
+12,Atlético-MG,8,2,0,6,8,10,-2,6,0.75,VDDVD
+13,Remo,8,1,2,5,7,16,-9,5,0.63,VDEDD
+14,Athletico-PR,6,1,1,4,5,10,-5,4,0.67,DDDDE
+15,Vasco,7,0,4,3,9,12,-3,4,0.57,EDEEE
+16,Santos,7,0,4,3,9,14,-5,4,0.57,EEDEE
+17,Mirassol,6,1,1,4,6,9,-3,4,0.67,DVDDD
+18,Vitória,7,0,3,4,6,17,-11,3,0.43,EDEDD
+19,Grêmio,8,0,3,5,4,11,-7,3,0.38,EDEDD
+20,Chapecoense,5,0,1,4,2,9,-7,1,0.20,DDDDE
+
