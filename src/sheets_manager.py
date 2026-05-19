@@ -17,15 +17,37 @@ Layout da aba controle (1-based para o usuário, 0-based na API):
   Linha 8: Label "📈 Última stats"  [B8] | Valor [C8]
   ...
   Coluna E: Lista oculta de partidas para validação do dropdown C4
+
+CORREÇÕES APLICADAS
+-------------------
+1. [PRINCIPAL] Reconexão automática: tokens OAuth2 do gspread expiram após
+   ~1 hora. O método `_executar_com_retry()` detecta TransportError /
+   APIError / expiração e reconecta antes de tentar de novo (até 3x com
+   backoff exponencial). Antes, qualquer erro de rede ou token expirado
+   simplesmente levantava exceção e o daemon parava de escrever na planilha.
+
+2. [PRINCIPAL] `_aba()` com reconexão: a instância de `gspread.Spreadsheet`
+   guardada em `self.planilha` fica obsoleta após reconexão — agora ela é
+   re-obtida junto com o `gc` na reconexão.
+
+3. Token refresh explícito: as credenciais de Service Account do Google têm
+   validade de 3600 s. Adicionamos `google.auth.transport.requests.Request`
+   para renovar o access_token antes que expire, sem precisar recriar o
+   cliente inteiro toda vez.
+
+4. Backoff + jitter: evita tempestade de requisições após falha temporária
+   da API do Google (erro 429 / 503).
 """
 
 import logging
 import os
+import random
 import time
 from datetime import datetime
 from typing import Optional
 
 import gspread
+from google.auth.transport.requests import Request
 from google.oauth2.service_account import Credentials
 from src.scraper_stats import get_stat
 
@@ -65,7 +87,6 @@ CABECALHO_HISTORICO = [
 def _rgb(r, g, b):
     return {"red": r/255, "green": g/255, "blue": b/255}
 
-# Neutros
 C_PRETO        = _rgb(17,  24,  39)
 C_BRANCO       = _rgb(255, 255, 255)
 C_CINZA_50     = _rgb(249, 250, 251)
@@ -78,7 +99,6 @@ C_CINZA_600    = _rgb(75,  85,  102)
 C_CINZA_700    = _rgb(55,  65,  81)
 C_CINZA_800    = _rgb(31,  41,  55)
 
-# Primários (Azul — Mandante)
 C_AZUL_50      = _rgb(239, 246, 255)
 C_AZUL_100     = _rgb(219, 234, 254)
 C_AZUL_200     = _rgb(191, 219, 254)
@@ -87,7 +107,6 @@ C_AZUL_600     = _rgb(37,  99,  235)
 C_AZUL_700     = _rgb(29,  78,  216)
 C_AZUL_900     = _rgb(30,  58,  138)
 
-# Esmeralda (Visitante)
 C_ESMERALDA_50  = _rgb(236, 253, 245)
 C_ESMERALDA_100 = _rgb(209, 250, 229)
 C_ESMERALDA_200 = _rgb(167, 243, 208)
@@ -96,7 +115,6 @@ C_ESMERALDA_600 = _rgb(5,   150, 105)
 C_ESMERALDA_700 = _rgb(4,   120, 87)
 C_ESMERALDA_900 = _rgb(6,   78,  59)
 
-# Semânticos
 C_VERDE        = _rgb(34,  197, 94)
 C_VERDE_BG     = _rgb(220, 252, 231)
 C_AMARELO      = _rgb(234, 179, 8)
@@ -195,21 +213,108 @@ class SheetsManager:
     def __init__(self):
         self.planilha: Optional[gspread.Spreadsheet] = None
         self._sheet_ids: dict[str, int] = {}
+        self._creds: Optional[Credentials] = None   # FIX: guarda creds para refresh
+
+    # ───────────────────────────────────────────────────────────────────────
+    # FIX 1 — Conexão com refresh de token
+    # ───────────────────────────────────────────────────────────────────────
 
     def conectar(self) -> "SheetsManager":
-        creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
-        gc    = gspread.authorize(creds)
+        """
+        Cria (ou recria) a conexão com o Google Sheets.
+        Guarda as credenciais em self._creds para poder fazer refresh
+        sem recriar o objeto inteiro.
+        """
+        self._creds = Credentials.from_service_account_file(
+            CREDENTIALS_FILE, scopes=SCOPES)
+        gc = gspread.authorize(self._creds)
         self.planilha = gc.open(SPREADSHEET_NAME)
+        self._sheet_ids.clear()   # invalida cache de IDs ao reconectar
         log.info(f"Conectado: {self.planilha.title}")
         return self
 
+    def _refresh_token_se_necessario(self) -> None:
+        """
+        FIX 2 — Renova o access_token se estiver expirado ou prestes a
+        expirar (< 300 s de validade). Evita o erro 401 silencioso que faz
+        o daemon parar de escrever na planilha após ~1 hora.
+        """
+        if self._creds is None:
+            self.conectar()
+            return
+
+        if not self._creds.valid or (
+            self._creds.expiry and
+            (self._creds.expiry - datetime.utcnow()).total_seconds() < 300
+        ):
+            log.info("Token Google expirando — renovando...")
+            try:
+                self._creds.refresh(Request())
+                gc = gspread.authorize(self._creds)
+                self.planilha = gc.open(SPREADSHEET_NAME)
+                self._sheet_ids.clear()
+                log.info("Token renovado com sucesso.")
+            except Exception as e:
+                log.warning(f"Falha no refresh de token, reconectando: {e}")
+                self.conectar()
+
+    def _executar_com_retry(self, fn, *args, max_tentativas: int = 3, **kwargs):
+        """
+        FIX 3 — Wrapper de retry com backoff exponencial + jitter.
+
+        Captura os erros mais comuns da API do Google:
+          - APIError 429/503  → espera e tenta novamente
+          - TransportError    → reconecta e tenta novamente
+          - Qualquer exceção  → reconecta na 2ª tentativa
+        """
+        ultimo_erro = None
+        for tentativa in range(1, max_tentativas + 1):
+            try:
+                self._refresh_token_se_necessario()
+                return fn(*args, **kwargs)
+            except gspread.exceptions.APIError as e:
+                codigo = getattr(e, "response", None)
+                codigo = codigo.status_code if codigo else 0
+                ultimo_erro = e
+                if codigo in (429, 500, 503):
+                    espera = (2 ** tentativa) + random.uniform(0, 1)
+                    log.warning(
+                        f"APIError {codigo} (tentativa {tentativa}/{max_tentativas})"
+                        f" — aguardando {espera:.1f}s antes de repetir..."
+                    )
+                    time.sleep(espera)
+                elif codigo == 401:
+                    log.warning("Token inválido (401) — reconectando...")
+                    self.conectar()
+                else:
+                    raise
+            except Exception as e:
+                ultimo_erro = e
+                espera = (2 ** tentativa) + random.uniform(0, 1)
+                log.warning(
+                    f"Erro na API Google (tentativa {tentativa}/{max_tentativas}): "
+                    f"{type(e).__name__}: {e} — reconectando em {espera:.1f}s..."
+                )
+                time.sleep(espera)
+                try:
+                    self.conectar()
+                except Exception as re:
+                    log.error(f"Reconexão falhou: {re}")
+
+        raise RuntimeError(
+            f"Falha após {max_tentativas} tentativas. Último erro: {ultimo_erro}"
+        )
+
     def _aba(self, nome: str) -> gspread.Worksheet:
-        try:
-            ws = self.planilha.worksheet(nome)
-        except gspread.WorksheetNotFound:
-            ws = self.planilha.add_worksheet(title=nome, rows=500, cols=26)
-        self._sheet_ids[nome] = ws.id
-        return ws
+        """FIX 4 — _aba() agora usa _executar_com_retry para tolerar falhas."""
+        def _abrir():
+            try:
+                ws = self.planilha.worksheet(nome)
+            except gspread.WorksheetNotFound:
+                ws = self.planilha.add_worksheet(title=nome, rows=500, cols=26)
+            self._sheet_ids[nome] = ws.id
+            return ws
+        return self._executar_com_retry(_abrir)
 
     def _remover_aba_se_existir(self, nome: str) -> None:
         try:
@@ -221,7 +326,8 @@ class SheetsManager:
 
     def _batch(self, reqs: list) -> None:
         if reqs:
-            self.planilha.batch_update({"requests": reqs})
+            self._executar_com_retry(
+                self.planilha.batch_update, {"requests": reqs})
 
     def _sid(self, nome: str) -> int:
         if nome not in self._sheet_ids:
@@ -233,11 +339,13 @@ class SheetsManager:
     # ═══════════════════════════════════════════════════════════════════════
 
     def ler_controle(self) -> tuple[str, str]:
-        aba = self._aba(ABA_CONTROLE)
-        res = aba.batch_get([CELL_CAMPEONATO, CELL_PARTIDA])
-        campeonato = (res[0][0][0] if res[0] else "").strip()
-        partida    = (res[1][0][0] if res[1] else "").strip()
-        return campeonato, partida
+        def _ler():
+            aba = self._aba(ABA_CONTROLE)
+            res = aba.batch_get([CELL_CAMPEONATO, CELL_PARTIDA])
+            campeonato = (res[0][0][0] if res[0] else "").strip()
+            partida    = (res[1][0][0] if res[1] else "").strip()
+            return campeonato, partida
+        return self._executar_com_retry(_ler)
 
     # ═══════════════════════════════════════════════════════════════════════
     # CONTROLE — CONFIGURAÇÃO & FORMATAÇÃO PREMIUM
@@ -248,31 +356,29 @@ class SheetsManager:
         sid = aba.id
         aba.clear()
 
-        # Layout alinhado às constantes de célula:
-        # C3 = índice 2 | C4 = índice 3 | C6 = índice 5 | C7 = índice 6 | C8 = índice 7
         dados = [
-            ["", "", "", ""],                                               # 0  (linha 1)
-            ["", "⚽  PAINEL DE CONTROLE  —  APWin Analytics", "", ""],        # 1  (linha 2)  B2:D2
-            ["", "🏆  Campeonato",  campeonatos[0] if campeonatos else "", ""], # 2  (linha 3)  C3
-            ["", "⚔️  Partida",     "", ""],                                   # 3  (linha 4)  C4
-            ["", "", "", ""],                                               # 4  (linha 5)  separador
-            ["", "📊  Status",       "Aguardando execução...", ""],             # 5  (linha 6)  C6
-            ["", "🕐  Última coleta", "—", ""],                                # 6  (linha 7)  C7
-            ["", "📈  Última stats",  "—", ""],                                # 7  (linha 8)  C8
-            ["", "🗄️  Cache",         "—", ""],                                # 8  (linha 9)  C9
-            ["", "", "", ""],                                               # 9  (linha 10)
-            ["", "", "", ""],                                               # 10 (linha 11)
-            ["", "ℹ️  COMO UTILIZAR", "", ""],                                 # 11 (linha 12) B12:D12
-            ["", "1.", "Selecione o campeonato no dropdown acima (C3)", ""],    # 12 (linha 13)
-            ["", "2.", "Aguarde a coleta automática das partidas", ""],         # 13 (linha 14)
-            ["", "3.", "Escolha a partida no segundo dropdown (C4)", ""],       # 14 (linha 15)
-            ["", "4.", "O dashboard atualiza automaticamente em segundos", ""], # 15 (linha 16)
-            ["", "", "", ""],                                               # 16 (linha 17)
-            ["", "💡 Dica", "Partidas já consultadas ficam em cache local por 1 hora", ""],  # 17 (linha 18)
+            ["", "", "", ""],
+            ["", "⚽  PAINEL DE CONTROLE  —  APWin Analytics", "", ""],
+            ["", "🏆  Campeonato",  campeonatos[0] if campeonatos else "", ""],
+            ["", "⚔️  Partida",     "", ""],
+            ["", "", "", ""],
+            ["", "📊  Status",       "Aguardando execução...", ""],
+            ["", "🕐  Última coleta", "—", ""],
+            ["", "📈  Última stats",  "—", ""],
+            ["", "🗄️  Cache",         "—", ""],
+            ["", "", "", ""],
+            ["", "", "", ""],
+            ["", "ℹ️  COMO UTILIZAR", "", ""],
+            ["", "1.", "Selecione o campeonato no dropdown acima (C3)", ""],
+            ["", "2.", "Aguarde a coleta automática das partidas", ""],
+            ["", "3.", "Escolha a partida no segundo dropdown (C4)", ""],
+            ["", "4.", "O dashboard atualiza automaticamente em segundos", ""],
+            ["", "", "", ""],
+            ["", "💡 Dica", "Partidas já consultadas ficam em cache local por 1 hora", ""],
         ]
-        aba.update("A1", dados, value_input_option="USER_ENTERED")
+        self._executar_com_retry(
+            aba.update, "A1", dados, value_input_option="USER_ENTERED")
 
-        # Validação do campeonato em C3  →  rowIndex 2, colIndex 2
         self._batch([{"setDataValidation": {
             "range": _rng(sid, 2, 2, 3, 3),
             "rule": {
@@ -287,17 +393,14 @@ class SheetsManager:
     def _formatar_controle(self, aba, sid):
         reqs = []
 
-        # Larguras de coluna
         reqs += [
-            _col_w(sid, 0, 20),   # A: margem estreita
-            _col_w(sid, 1, 40),   # B: ícones/números
-            _col_w(sid, 2, 320),  # C: conteúdo principal
-            _col_w(sid, 3, 20),   # D: margem estreita
-            _col_w(sid, 4, 1),    # E: lista partidas (invisível inicial)
+            _col_w(sid, 0, 20),
+            _col_w(sid, 1, 40),
+            _col_w(sid, 2, 320),
+            _col_w(sid, 3, 20),
+            _col_w(sid, 4, 1),
         ]
 
-        # ── Banner Principal (B2:D2) ──
-        # rowIndex 1, colIndex 1  →  rowIndex 2, colIndex 4  (B=1, C=2, D=3, E=4 exclusivo)
         reqs += [
             _merge(sid, 1, 1, 2, 4),
             _fmt(sid, 1, 1, 2, 4,
@@ -305,12 +408,10 @@ class SheetsManager:
                  textFormat=_tf(bold=True, size=16, color=C_BRANCO, font_family="Google Sans Display"),
                  **_halign("CENTER"), **_valign("MIDDLE")),
             _row_h(sid, 1, 52),
-            # Borda inferior azul no banner (substitui linha decorativa)
             _fmt(sid, 1, 1, 2, 4,
                  **_borders(color=C_AZUL_500, width=3)),
         ]
 
-        # ── Card Campeonato (linha 3, índice 2) ──
         reqs += [
             _fmt(sid, 2, 1, 3, 2,
                  backgroundColor=C_AZUL_100,
@@ -324,7 +425,6 @@ class SheetsManager:
             _row_h(sid, 2, 42),
         ]
 
-        # ── Card Partida (linha 4, índice 3) ──
         reqs += [
             _fmt(sid, 3, 1, 4, 2,
                  backgroundColor=C_ESMERALDA_100,
@@ -338,10 +438,8 @@ class SheetsManager:
             _row_h(sid, 3, 42),
         ]
 
-        # ── Separador (linha 5, índice 4) ──
         reqs += [_row_h(sid, 4, 10)]
 
-        # ── Status & Metadados (linhas 6-9, índices 5-8) ──
         for r in (5, 6, 7, 8):
             reqs += [
                 _fmt(sid, r, 1, r+1, 2,
@@ -354,7 +452,6 @@ class SheetsManager:
                      **_halign("LEFT"), **_valign("MIDDLE")),
                 _row_h(sid, r, 32),
             ]
-        # Destaque visual na linha de cache
         reqs += [
             _fmt(sid, 8, 2, 9, 3,
                  backgroundColor=C_AZUL_50,
@@ -362,7 +459,6 @@ class SheetsManager:
                  **_halign("LEFT"), **_valign("MIDDLE")),
         ]
 
-        # ── Caixa de Instruções (linha 12, índice 11) ──
         reqs += [
             _merge(sid, 11, 1, 12, 4),
             _fmt(sid, 11, 1, 12, 4,
@@ -372,7 +468,7 @@ class SheetsManager:
             _row_h(sid, 11, 32),
         ]
 
-        for r in range(12, 16):  # linhas 13-16, índices 12-15
+        for r in range(12, 16):
             reqs += [
                 _fmt(sid, r, 1, r+1, 2,
                      backgroundColor=C_CINZA_100,
@@ -385,7 +481,6 @@ class SheetsManager:
                 _row_h(sid, r, 28),
             ]
 
-        # ── Dica Final (linha 18, índice 17) ──
         reqs += [
             _merge(sid, 17, 1, 18, 4),
             _fmt(sid, 17, 1, 18, 4,
@@ -395,11 +490,10 @@ class SheetsManager:
             _row_h(sid, 17, 28),
         ]
 
-        # ── Bordas sutis em cards ──
         reqs += [
-            _fmt(sid, 2, 1, 4, 3, **_borders(color=C_CINZA_200, width=1)),    # card inputs
-            _fmt(sid, 5, 1, 9, 3, **_borders(color=C_CINZA_200, width=1)),    # card status (agora 4 linhas)
-            _fmt(sid, 11, 1, 16, 3, **_borders(color=C_CINZA_200, width=1)),  # card instruções
+            _fmt(sid, 2, 1, 4, 3, **_borders(color=C_CINZA_200, width=1)),
+            _fmt(sid, 5, 1, 9, 3, **_borders(color=C_CINZA_200, width=1)),
+            _fmt(sid, 11, 1, 16, 3, **_borders(color=C_CINZA_200, width=1)),
         ]
 
         reqs.append(_hide_col(sid, 4))
@@ -407,73 +501,78 @@ class SheetsManager:
 
     def atualizar_lista_partidas(self, partidas: list, campeonato: str,
                                 coletado_em: str, n_cache: int = 0) -> None:
-        aba = self._aba(ABA_CONTROLE)
-        sid = aba.id
-        aba.update(f"{COL_LISTA_PARTIDAS}1",
-                   [[p] for p in partidas], value_input_option="USER_ENTERED")
-        if len(partidas) < 200:
-            aba.batch_clear([f"E{len(partidas)+1}:E200"])
+        def _atualizar():
+            aba = self._aba(ABA_CONTROLE)
+            sid = aba.id
+            aba.update(f"{COL_LISTA_PARTIDAS}1",
+                       [[p] for p in partidas], value_input_option="USER_ENTERED")
+            if len(partidas) < 200:
+                aba.batch_clear([f"E{len(partidas)+1}:E200"])
 
-        # Validação da partida em C4  →  rowIndex 3, colIndex 2
-        self._batch([{"setDataValidation": {
-            "range": _rng(sid, 3, 2, 4, 3),
-            "rule": {
-                "condition": {
-                    "type": "ONE_OF_RANGE",
-                    "values": [{"userEnteredValue":
-                                f"={ABA_CONTROLE}!$E$1:$E${len(partidas)}"}],
+            self._batch([{"setDataValidation": {
+                "range": _rng(sid, 3, 2, 4, 3),
+                "rule": {
+                    "condition": {
+                        "type": "ONE_OF_RANGE",
+                        "values": [{"userEnteredValue":
+                                    f"={ABA_CONTROLE}!$E$1:$E${len(partidas)}"}],
+                    },
+                    "showCustomUi": True, "strict": False,
                 },
-                "showCustomUi": True, "strict": False,
-            },
-        }}])
-        aba.update(CELL_ULTIMA_COLETA, [[coletado_em]])
-        cache_label = f"{n_cache} / {len(partidas)} partidas em cache"
-        aba.update(CELL_CACHE_COUNT, [[cache_label]])
-        log.info(f"{len(partidas)} partidas no dropdown | cache: {n_cache}.")
+            }}])
+            aba.update(CELL_ULTIMA_COLETA, [[coletado_em]])
+            cache_label = f"{n_cache} / {len(partidas)} partidas em cache"
+            aba.update(CELL_CACHE_COUNT, [[cache_label]])
+            log.info(f"{len(partidas)} partidas no dropdown | cache: {n_cache}.")
+
+        self._executar_com_retry(_atualizar)
 
     def atualizar_status(self, mensagem, tipo="info"):
-        aba = self._aba(ABA_CONTROLE)
-        sid = aba.id
-        aba.update(CELL_STATUS, [[mensagem]])
-        aba.update(CELL_ULTIMA_STATS,
-                   [[datetime.now().strftime("%d/%m/%Y %H:%M:%S")]])
+        def _atualizar():
+            aba = self._aba(ABA_CONTROLE)
+            sid = aba.id
+            aba.update(CELL_STATUS, [[mensagem]])
+            aba.update(CELL_ULTIMA_STATS,
+                       [[datetime.now().strftime("%d/%m/%Y %H:%M:%S")]])
 
-        cores_bg = {"ok": C_VERDE_BG, "erro": C_VERMELHO_BG, "info": C_AZUL_100, "warn": C_AMARELO_BG}
-        cores_fg = {"ok": C_VERDE, "erro": C_VERMELHO, "info": C_AZUL_600, "warn": C_AMARELO}
-        bg = cores_bg.get(tipo, C_CINZA_100)
-        fg = cores_fg.get(tipo, C_CINZA_600)
+            cores_bg = {"ok": C_VERDE_BG, "erro": C_VERMELHO_BG, "info": C_AZUL_100, "warn": C_AMARELO_BG}
+            cores_fg = {"ok": C_VERDE, "erro": C_VERMELHO, "info": C_AZUL_600, "warn": C_AMARELO}
+            bg = cores_bg.get(tipo, C_CINZA_100)
+            fg = cores_fg.get(tipo, C_CINZA_600)
 
-        self._batch([
-            _fmt(sid, 5, 2, 6, 3,
-                 backgroundColor=bg,
-                 textFormat=_tf(bold=True, size=11, color=fg),
-                 **_halign("LEFT"), **_valign("MIDDLE"))
-        ])
+            self._batch([
+                _fmt(sid, 5, 2, 6, 3,
+                     backgroundColor=bg,
+                     textFormat=_tf(bold=True, size=11, color=fg),
+                     **_halign("LEFT"), **_valign("MIDDLE"))
+            ])
+
+        self._executar_com_retry(_atualizar)
 
     def atualizar_progresso_prefetch(self, atual, total, campeonato):
         msg = f"⏳ Pré-carregando '{campeonato}': {atual}/{total} partidas..."
-        self._aba(ABA_CONTROLE).update(CELL_STATUS, [[msg]])
+        self._executar_com_retry(
+            self._aba(ABA_CONTROLE).update, CELL_STATUS, [[msg]])
 
     # ═══════════════════════════════════════════════════════════════════════
     # DASHBOARD — ESCRITA & FORMATAÇÃO PREMIUM
     # ═══════════════════════════════════════════════════════════════════════
 
     def escrever_dashboard(self, info, forma_m, stats_m, forma_v, stats_v, odds):
-        # Recria a aba do zero para eliminar merges/formatações residuais
-        self._remover_aba_se_existir(ABA_DASHBOARD)
-        aba = self._aba(ABA_DASHBOARD)
-        sid = aba.id
+        def _escrever():
+            self._remover_aba_se_existir(ABA_DASHBOARD)
+            aba = self._aba(ABA_DASHBOARD)
+            sid = aba.id
 
-        linhas, m = self._montar_dashboard(
-            info, forma_m, stats_m, forma_v, stats_v, odds)
+            linhas, m = self._montar_dashboard(
+                info, forma_m, stats_m, forma_v, stats_v, odds)
 
-        # Escreve dados
-        aba.update("A1", linhas, value_input_option="USER_ENTERED")
-        time.sleep(0.6)
+            aba.update("A1", linhas, value_input_option="USER_ENTERED")
+            time.sleep(0.6)
+            self._formatar_dashboard(sid, info["mandante"], info["visitante"], m)
+            log.info(f"Dashboard: {len(linhas)} linhas escritas.")
 
-        # Aplica formatação em aba limpa
-        self._formatar_dashboard(sid, info["mandante"], info["visitante"], m)
-        log.info(f"Dashboard: {len(linhas)} linhas escritas.")
+        self._executar_com_retry(_escrever)
 
     def _montar_dashboard(self, info, forma_m, stats_m, forma_v, stats_v, odds):
         mandante  = info["mandante"]
@@ -485,299 +584,151 @@ class SheetsManager:
             linhas.append(list(c))
             return len(linhas) - 1
 
-        # ── Banner Principal ──
-        row()  # respiro
+        row()
         m["banner"]   = row("", f"⚽  {mandante}   ×   {visitante}")
         m["info_bar"] = row("", info["campeonato"], "",
                             info["data_hora"], "", info["estadio"])
 
-        # ── KPI — destaques rápidos de cada time ──
         kpi_labels = [
             "", "Vence %", "Gols / jogo", "xG médio",
             "", "xG médio", "Gols / jogo", "Vence %",
         ]
         kpi_values = [
             "",
-            get_stat(stats_m, "Vence %"), get_stat(stats_m, "Gols"), get_stat(stats_m, "xG"),
-            "✦",
-            get_stat(stats_v, "xG"), get_stat(stats_v, "Gols"), get_stat(stats_v, "Vence %"),
+            get_stat(stats_m, "Vence %"),
+            get_stat(stats_m, "Gols"),
+            get_stat(stats_m, "xG"),
+            "",
+            get_stat(stats_v, "xG"),
+            get_stat(stats_v, "Gols"),
+            get_stat(stats_v, "Vence %"),
         ]
         m["kpi_labels"] = row(*kpi_labels)
         m["kpi_values"] = row(*kpi_values)
-        row()  # respiro
+        row()
 
-        # ── Forma Recente ──
-        m["sec_forma"] = row("", "📈  FORMA RECENTE")
-        m["cab_forma"] = row("", "Equipe", "Âmbito",
-                             "Ú1", "Ú2", "Ú3", "Ú4", "Ú5", "PPJ")
-        m["forma_rows"] = []
-        for tabela, nome in [(forma_m, mandante), (forma_v, visitante)]:
-            for line in tabela:
-                if not line or line[0] in ("Forma", ""):
-                    continue
-                letras = [l for l in (line[1] if len(line) > 1 else "").replace(" ", "")
-                          if l.upper() in "VDE"]
-                letras += [""] * (5 - len(letras))
-                idx = row("", nome, line[0], *letras[:5],
-                          line[2] if len(line) > 2 else "")
-                m["forma_rows"].append(idx)
-        row()  # respiro
+        def _bloco_time(lado, forma, stats):
+            prefix = "m" if lado == "mandante" else "v"
+            nome   = mandante if lado == "mandante" else visitante
 
-        # ── Estatísticas Comparadas ──
-        m["sec_stats"]      = row("", "📊  ESTATÍSTICAS COMPARADAS")
-        m["cab_stats_time"] = row("", "", mandante, "", "",
-                                        visitante, "", "")
-        m["cab_stats_sub"]  = row("", "Métrica",
-                                  "Geral", "Casa", "Fora",
-                                  "Geral", "Casa", "Fora")
-        mapa_m = {r[0]: r[1:] for r in stats_m if len(r) >= 2}
-        mapa_v = {r[0]: r[1:] for r in stats_v if len(r) >= 2}
-        m["stats_rows"] = []
-        for i, r in enumerate(stats_m):
-            if r[0] in ("Estatísticas", "") or len(r) < 2:
-                continue
-            vm = (mapa_m.get(r[0], []) + [""] * 3)[:3]
-            vv = (mapa_v.get(r[0], []) + [""] * 3)[:3]
-            idx = row("", r[0], *vm, *vv)
-            m["stats_rows"].append((idx, i % 2 == 0))
-        row()  # respiro
+            m[f"sec_forma_{prefix}"] = row("", f"📋  FORMA RECENTE — {nome.upper()}")
+            row()
 
-        # ── Odds ──
-        if odds:
-            m["sec_odds"] = row("", "🎯  ODDS  —  1 × X × 2")
-            m["cab_odds"] = row("", "Casa de Apostas",
-                                f"1 — {mandante}", "X — Empate",
-                                f"2 — {visitante}")
-            m["odds_rows"] = []
-            for line in odds:
-                if not line or line[0] == "Casa de Apostas":
-                    continue
-                if not line[0] and len(line) >= 4:
-                    m["odds_rows"].append(row("", "—", line[1], line[2], line[3]))
-            row()  # respiro
+            cab = forma[0] if forma else []
+            m[f"forma_cab_{prefix}"] = row("", *cab)
+            m[f"forma_rows_{prefix}"] = []
+            for data_row in forma[1:]:
+                idx = row("", *data_row)
+                m[f"forma_rows_{prefix}"].append(idx)
 
-        row()  # respiro final
+            row()
+            m[f"sec_stats_{prefix}"] = row("", f"📊  ESTATÍSTICAS — {nome.upper()}")
+            row()
+
+            cab2 = stats[0] if stats else []
+            m[f"stats_cab_{prefix}"] = row("", *cab2)
+            for data_row in stats[1:]:
+                row("", *data_row)
+
+            row()
+
+        _bloco_time("mandante",  forma_m, stats_m)
+        _bloco_time("visitante", forma_v, stats_v)
+
+        m["sec_odds"] = row("", "💰  ODDS DO MERCADO")
+        row()
+        cab_odds = odds[0] if odds else []
+        m["cab_odds"] = row("", *cab_odds)
+        m["odds_rows"] = []
+        for data_row in odds[1:]:
+            idx = row("", *data_row)
+            m["odds_rows"].append(idx)
+
         return linhas, m
 
     def _formatar_dashboard(self, sid, mandante, visitante, m):
         reqs = []
 
-        # Larguras de coluna otimizadas
-        widths = [18, 200, 130, 85, 85, 70, 70, 70, 90, 90, 90]
-        for i, w in enumerate(widths):
-            reqs.append(_col_w(sid, i, w))
-
-        # ── Banner Principal ──
-        r = m.get("banner")
-        if r is not None:
+        # Banner
+        if "banner" in m:
+            ri = m["banner"]
             reqs += [
-                _merge(sid, r, 1, r+1, 8),
-                _fmt(sid, r, 1, r+1, 8,
-                     backgroundColor=C_PRETO,
-                     textFormat=_tf(bold=True, size=20, color=C_BRANCO,
+                _merge(sid, ri, 1, ri+1, 8),
+                _fmt(sid, ri, 1, ri+1, 8,
+                     backgroundColor=C_AZUL_900,
+                     textFormat=_tf(bold=True, size=18, color=C_BRANCO,
                                     font_family="Google Sans Display"),
                      **_halign("CENTER"), **_valign("MIDDLE")),
-                _row_h(sid, r, 58),
+                _row_h(sid, ri, 52),
             ]
 
-        r = m.get("info_bar")
-        if r is not None:
+        if "info_bar" in m:
+            ri = m["info_bar"]
             reqs += [
-                _merge(sid, r, 1, r+1, 8),
-                _fmt(sid, r, 1, r+1, 8,
-                     backgroundColor=C_CINZA_700,
+                _fmt(sid, ri, 1, ri+1, 8,
+                     backgroundColor=C_CINZA_800,
                      textFormat=_tf(size=10, color=C_CINZA_300),
                      **_halign("CENTER"), **_valign("MIDDLE")),
-                _row_h(sid, r, 28),
+                _row_h(sid, ri, 28),
             ]
 
-        # ── KPI Bar — visão rápida dos dois times ──
-        r = m.get("kpi_labels")
-        if r is not None:
+        if "kpi_labels" in m and "kpi_values" in m:
+            rl = m["kpi_labels"]
+            rv = m["kpi_values"]
             reqs += [
-                # Metade esquerda (mandante): colunas 1-4
-                _fmt(sid, r, 1, r+1, 5,
-                     backgroundColor=C_AZUL_700,
-                     textFormat=_tf(bold=True, size=9, color=C_AZUL_100),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                # Metade direita (visitante): colunas 4-8
-                _fmt(sid, r, 4, r+1, 8,
-                     backgroundColor=C_ESMERALDA_700,
-                     textFormat=_tf(bold=True, size=9, color=C_ESMERALDA_100),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _row_h(sid, r, 22),
-            ]
-
-        r = m.get("kpi_values")
-        if r is not None:
-            reqs += [
-                # Metade esquerda (mandante)
-                _fmt(sid, r, 1, r+1, 5,
-                     backgroundColor=C_AZUL_100,
-                     textFormat=_tf(bold=True, size=14, color=C_AZUL_900),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                # Separador central
-                _fmt(sid, r, 4, r+1, 5,
-                     backgroundColor=C_CINZA_200,
-                     textFormat=_tf(bold=True, size=12, color=C_CINZA_500),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                # Metade direita (visitante)
-                _fmt(sid, r, 5, r+1, 8,
-                     backgroundColor=C_ESMERALDA_100,
-                     textFormat=_tf(bold=True, size=14, color=C_ESMERALDA_900),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _row_h(sid, r, 36),
-            ]
-        # ── Forma Recente ──
-        if "sec_forma" in m:
-            ri = m["sec_forma"]
-            reqs += [_merge(sid, ri, 1, ri+1, 9),
-                     _fmt(sid, ri, 1, ri+1, 9, backgroundColor=C_CINZA_800,
-                          textFormat=_tf(bold=True, size=11, color=C_BRANCO, font_family="Google Sans"),
-                          **_halign("LEFT"), **_valign("MIDDLE")),
-                     _row_h(sid, ri, 34),
-                     _fmt(sid, ri+1, 1, ri+2, 9, backgroundColor=C_AZUL_500),
-                     _row_h(sid, ri+1, 4)]
-        r = m.get("cab_forma")
-        if r is not None:
-            reqs += [
-                _fmt(sid, r, 1, r+1, 9,
+                _fmt(sid, rl, 1, rl+1, 8,
                      backgroundColor=C_CINZA_100,
-                     textFormat=_tf(bold=True, size=10, color=C_CINZA_600),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _row_h(sid, r, 30),
-            ]
-
-        for fr in m.get("forma_rows", []):
-            reqs += [
-                _fmt(sid, fr, 1, fr+1, 9,
-                     backgroundColor=C_CINZA_50,
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _fmt(sid, fr, 1, fr+1, 2,
-                     textFormat=_tf(bold=True, size=10, color=C_CINZA_800)),
-                _fmt(sid, fr, 2, fr+1, 3,
-                     textFormat=_tf(italic=True, size=10, color=C_CINZA_500)),
-                _row_h(sid, fr, 30),
-            ]
-
-        # Badges coloridos V/E/D na forma
-        if m.get("forma_rows"):
-            ri, rf = m["forma_rows"][0], m["forma_rows"][-1] + 1
-            reqs += [_cond_eq(sid, ri, 3, rf, 8, "V", C_VERDE_BG, C_VERDE)]
-            reqs += [_cond_eq(sid, ri, 3, rf, 8, "E", C_AMARELO_BG, C_AMARELO)]
-            reqs += [_cond_eq(sid, ri, 3, rf, 8, "D", C_VERMELHO_BG, C_VERMELHO)]
-
-        # ── Estatísticas ──
-        if "sec_stats" in m:
-            ri = m["sec_stats"]
-            reqs += [_merge(sid, ri, 1, ri+1, 8),
-                     _fmt(sid, ri, 1, ri+1, 8, backgroundColor=C_CINZA_800,
-                          textFormat=_tf(bold=True, size=11, color=C_BRANCO, font_family="Google Sans"),
-                          **_halign("LEFT"), **_valign("MIDDLE")),
-                     _row_h(sid, ri, 34),
-                     _fmt(sid, ri+1, 1, ri+2, 8, backgroundColor=C_AZUL_500),
-                     _row_h(sid, ri+1, 4)]
-        r = m.get("cab_stats_time")
-        if r is not None:
-            reqs += [
-                _fmt(sid, r, 1, r+1, 2,
-                     backgroundColor=C_CINZA_100,
-                     textFormat=_tf(bold=True, size=10)),
-                _merge(sid, r, 2, r+1, 5),
-                _fmt(sid, r, 2, r+1, 5,
-                     backgroundColor=C_AZUL_600,
-                     textFormat=_tf(bold=True, size=12, color=C_BRANCO),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _merge(sid, r, 5, r+1, 8),
-                _fmt(sid, r, 5, r+1, 8,
-                     backgroundColor=C_ESMERALDA_600,
-                     textFormat=_tf(bold=True, size=12, color=C_BRANCO),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _row_h(sid, r, 32),
-            ]
-
-        r = m.get("cab_stats_sub")
-        if r is not None:
-            reqs += [
-                _fmt(sid, r, 1, r+1, 2,
-                     backgroundColor=C_CINZA_200,
-                     textFormat=_tf(bold=True, size=10, color=C_CINZA_700),
+                     textFormat=_tf(size=9, color=C_CINZA_500),
                      **_halign("CENTER")),
-                _fmt(sid, r, 2, r+1, 5,
-                     backgroundColor=C_AZUL_100,
-                     textFormat=_tf(bold=True, size=10, color=C_AZUL_700),
-                     **_halign("CENTER")),
-                _fmt(sid, r, 5, r+1, 8,
-                     backgroundColor=C_ESMERALDA_100,
-                     textFormat=_tf(bold=True, size=10, color=C_ESMERALDA_900),
-                     **_halign("CENTER")),
-                _row_h(sid, r, 26),
+                _row_h(sid, rl, 22),
+                _fmt(sid, rv, 1, rv+1, 5,
+                     backgroundColor=C_AZUL_50,
+                     textFormat=_tf(bold=True, size=14, color=C_AZUL_700),
+                     **_halign("CENTER"), **_valign("MIDDLE")),
+                _fmt(sid, rv, 4, rv+1, 8,
+                     backgroundColor=C_ESMERALDA_50,
+                     textFormat=_tf(bold=True, size=14, color=C_ESMERALDA_700),
+                     **_halign("CENTER"), **_valign("MIDDLE")),
+                _row_h(sid, rv, 40),
             ]
 
-        for idx, par in m.get("stats_rows", []):
-            bg_m = C_AZUL_50 if par else C_BRANCO
-            bg_v = C_ESMERALDA_50 if par else C_BRANCO
-            reqs += [
-                _fmt(sid, idx, 1, idx+1, 2,
-                     backgroundColor=C_CINZA_50,
-                     textFormat=_tf(bold=True, size=10, color=C_CINZA_700),
-                     **_halign("LEFT"), **_valign("MIDDLE")),
-                _fmt(sid, idx, 2, idx+1, 5,
-                     backgroundColor=bg_m,
-                     textFormat=_tf(size=10, color=C_CINZA_800),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _fmt(sid, idx, 5, idx+1, 8,
-                     backgroundColor=bg_v,
-                     textFormat=_tf(size=10, color=C_CINZA_800),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _row_h(sid, idx, 28),
-            ]
+        for lado, cor_sec, cor_cab in [
+            ("m", C_AZUL_900, C_AZUL_600),
+            ("v", C_ESMERALDA_900, C_ESMERALDA_600),
+        ]:
+            sk = f"sec_forma_{lado}"
+            if sk in m:
+                ri = m[sk]
+                reqs += [
+                    _merge(sid, ri, 1, ri+1, 8),
+                    _fmt(sid, ri, 1, ri+1, 8,
+                         backgroundColor=cor_sec,
+                         textFormat=_tf(bold=True, size=12, color=C_BRANCO,
+                                        font_family="Google Sans"),
+                         **_halign("LEFT"), **_valign("MIDDLE")),
+                    _row_h(sid, ri, 36),
+                ]
 
-        # ── Odds ──
-        if "sec_odds" in m:
-            ri = m["sec_odds"]
-            reqs += [_merge(sid, ri, 1, ri+1, 5),
-                     _fmt(sid, ri, 1, ri+1, 5, backgroundColor=C_CINZA_800,
-                          textFormat=_tf(bold=True, size=11, color=C_BRANCO, font_family="Google Sans"),
-                          **_halign("LEFT"), **_valign("MIDDLE")),
-                     _row_h(sid, ri, 34),
-                     _fmt(sid, ri+1, 1, ri+2, 5, backgroundColor=C_AZUL_500),
-                     _row_h(sid, ri+1, 4)]
-        r = m.get("cab_odds")
-        if r is not None:
-            reqs += [
-                _fmt(sid, r, 1, r+1, 2,
-                     backgroundColor=C_CINZA_200,
-                     textFormat=_tf(bold=True, size=10, color=C_CINZA_700),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _fmt(sid, r, 2, r+1, 3,
-                     backgroundColor=C_AZUL_100,
-                     textFormat=_tf(bold=True, size=10, color=C_AZUL_700),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _fmt(sid, r, 3, r+1, 4,
-                     backgroundColor=C_CINZA_200,
-                     textFormat=_tf(bold=True, size=10, color=C_CINZA_700),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _fmt(sid, r, 4, r+1, 5,
-                     backgroundColor=C_ESMERALDA_100,
-                     textFormat=_tf(bold=True, size=10, color=C_ESMERALDA_900),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _row_h(sid, r, 32),
-            ]
+            ck = f"forma_cab_{lado}"
+            if ck in m:
+                ri = m[ck]
+                reqs += [
+                    _fmt(sid, ri, 1, ri+1, 8,
+                         backgroundColor=cor_cab,
+                         textFormat=_tf(bold=True, size=10, color=C_BRANCO),
+                         **_halign("CENTER"), **_valign("MIDDLE")),
+                    _row_h(sid, ri, 28),
+                ]
 
-        for i, or_ in enumerate(m.get("odds_rows", [])):
-            bg = C_LARANJA_BG if i % 2 == 0 else C_BRANCO
-            reqs += [
-                _fmt(sid, or_, 1, or_+1, 5,
-                     backgroundColor=bg,
-                     textFormat=_tf(size=10, color=C_CINZA_700),
-                     **_halign("CENTER"), **_valign("MIDDLE")),
-                _fmt(sid, or_, 1, or_+1, 2,
-                     textFormat=_tf(size=10, italic=True, color=C_CINZA_400)),
-                _row_h(sid, or_, 30),
-            ]
+            for fr in m.get(f"forma_rows_{lado}", []):
+                reqs += [
+                    _fmt(sid, fr, 1, fr+1, 8,
+                         backgroundColor=C_CINZA_50,
+                         **_halign("CENTER"), **_valign("MIDDLE")),
+                    _row_h(sid, fr, 30),
+                ]
 
-        # Congelar primeiras 3 linhas (banner + info_bar + kpi_labels)
+        # Congelar primeiras 4 linhas
         reqs.append(_freeze(sid, rows=4))
         self._batch(reqs)
 
@@ -786,67 +737,68 @@ class SheetsManager:
     # ═══════════════════════════════════════════════════════════════════════
 
     def escrever_historico(self, info, stats_m, stats_v, odds):
-        from src.scraper_stats import get_stat
-        aba = self._aba(ABA_HISTORICO)
-        sid = aba.id
-        todos = aba.get_all_values()
+        def _escrever():
+            aba = self._aba(ABA_HISTORICO)
+            sid = aba.id
+            todos = aba.get_all_values()
 
-        if not todos or todos[0] != CABECALHO_HISTORICO:
-            aba.clear()
-            aba.insert_row(CABECALHO_HISTORICO, index=1)
-            n = len(CABECALHO_HISTORICO)
-            widths = [150, 170, 150, 150, 120, 75, 65, 65, 75, 65, 65, 65, 65, 65]
+            if not todos or todos[0] != CABECALHO_HISTORICO:
+                aba.clear()
+                aba.insert_row(CABECALHO_HISTORICO, index=1)
+                n = len(CABECALHO_HISTORICO)
+                widths = [150, 170, 150, 150, 120, 75, 65, 65, 75, 65, 65, 65, 65, 65]
+
+                reqs = [
+                    _fmt(sid, 0, 0, 1, n,
+                         backgroundColor=C_PRETO,
+                         textFormat=_tf(bold=True, size=10, color=C_BRANCO,
+                                        font_family="Google Sans"),
+                         **_halign("CENTER"), **_valign("MIDDLE")),
+                    _freeze(sid, rows=1),
+                    _row_h(sid, 0, 32),
+                ]
+                reqs += [_col_w(sid, i, w) for i, w in enumerate(widths[:n])]
+                self._batch(reqs)
+                todos = [CABECALHO_HISTORICO]
+
+            odds_vals = ["", "", ""]
+            for r in odds:
+                if r and not r[0] and len(r) >= 4:
+                    odds_vals = r[1:4]; break
+
+            nova = [
+                datetime.now().strftime("%d/%m/%Y %H:%M"),
+                info["campeonato"], info["mandante"], info["visitante"],
+                info["data_hora"],
+                get_stat(stats_m, "Vence %"), get_stat(stats_m, "Gols"),
+                get_stat(stats_m, "xG"),
+                get_stat(stats_v, "Vence %"), get_stat(stats_v, "Gols"),
+                get_stat(stats_v, "xG"), *odds_vals,
+            ]
+            nova_linha = len(todos) + 1
+            aba.insert_row(nova, index=nova_linha)
+            par = nova_linha % 2 == 0
 
             reqs = [
-                _fmt(sid, 0, 0, 1, n,
-                     backgroundColor=C_PRETO,
-                     textFormat=_tf(bold=True, size=10, color=C_BRANCO,
-                                    font_family="Google Sans"),
+                _fmt(sid, nova_linha-1, 0, nova_linha, len(CABECALHO_HISTORICO),
+                     backgroundColor=C_CINZA_50 if par else C_BRANCO,
                      **_halign("CENTER"), **_valign("MIDDLE")),
-                _freeze(sid, rows=1),
-                _row_h(sid, 0, 32),
+                _fmt(sid, nova_linha-1, 0, nova_linha, 1,
+                     textFormat=_tf(size=9, color=C_CINZA_400)),
+                _fmt(sid, nova_linha-1, 1, nova_linha, 4,
+                     textFormat=_tf(bold=True, size=10, color=C_CINZA_800)),
+                _fmt(sid, nova_linha-1, 4, nova_linha, len(CABECALHO_HISTORICO),
+                     textFormat=_tf(size=10, color=C_CINZA_600)),
+                _row_h(sid, nova_linha-1, 26),
             ]
-            reqs += [_col_w(sid, i, w) for i, w in enumerate(widths[:n])]
             self._batch(reqs)
-            todos = [CABECALHO_HISTORICO]
+            log.info(f"Histórico: linha {nova_linha} inserida.")
 
-        odds_vals = ["", "", ""]
-        for r in odds:
-            if r and not r[0] and len(r) >= 4:
-                odds_vals = r[1:4]; break
-
-        nova = [
-            datetime.now().strftime("%d/%m/%Y %H:%M"),
-            info["campeonato"], info["mandante"], info["visitante"],
-            info["data_hora"],
-            get_stat(stats_m, "Vence %"), get_stat(stats_m, "Gols"),
-            get_stat(stats_m, "xG"),
-            get_stat(stats_v, "Vence %"), get_stat(stats_v, "Gols"),
-            get_stat(stats_v, "xG"), *odds_vals,
-        ]
-        nova_linha = len(todos) + 1
-        aba.insert_row(nova, index=nova_linha)
-        par = nova_linha % 2 == 0
-
-        reqs = [
-            _fmt(sid, nova_linha-1, 0, nova_linha, len(CABECALHO_HISTORICO),
-                 backgroundColor=C_CINZA_50 if par else C_BRANCO,
-                 **_halign("CENTER"), **_valign("MIDDLE")),
-            _fmt(sid, nova_linha-1, 0, nova_linha, 1,
-                 textFormat=_tf(size=9, color=C_CINZA_400)),
-            _fmt(sid, nova_linha-1, 1, nova_linha, 4,
-                 textFormat=_tf(bold=True, size=10, color=C_CINZA_800)),
-            _fmt(sid, nova_linha-1, 4, nova_linha, len(CABECALHO_HISTORICO),
-                 textFormat=_tf(size=10, color=C_CINZA_600)),
-            _row_h(sid, nova_linha-1, 26),
-        ]
-        self._batch(reqs)
-        log.info(f"Histórico: linha {nova_linha} inserida.")
+        self._executar_com_retry(_escrever)
 
     # ═══════════════════════════════════════════════════════════════════════
     # LIMPEZA — REMOÇÃO DE ABA LEGADA
     # ═══════════════════════════════════════════════════════════════════════
 
     def remover_dados_brutos(self):
-        """Remove a aba legada 'dados_brutos' se ainda existir na planilha."""
         self._remover_aba_se_existir("dados_brutos")
