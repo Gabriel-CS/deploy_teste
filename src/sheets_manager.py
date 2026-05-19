@@ -669,33 +669,31 @@ class SheetsManager:
     def _formatar_dashboard(self, sid, mandante, visitante, m):
         reqs = []
 
-        # [NOVO]: Definição de larguras para garantir um grid esteticamente harmônico
+        # 1. LARGURAS DE COLUNA (Grid baseado na aba De Finetti)
         reqs += [
-            _col_w(sid, 0, 20),   # Coluna A (Margem)
-            _col_w(sid, 1, 160),  # Coluna B (Rótulos amplos)
-            _col_w(sid, 2, 85),   # Coluna C (Valores numéricos)
-            _col_w(sid, 3, 85),   # Coluna D
-            _col_w(sid, 4, 85),   # Coluna E (Divisor central)
-            _col_w(sid, 5, 85),   # Coluna F
-            _col_w(sid, 6, 85),   # Coluna G
-            _col_w(sid, 7, 85),   # Coluna H
-            _col_w(sid, 8, 20),   # Margem direita sobressalente
+            _col_w(sid, 0, 16),   # A: Margem esquerda (limpa)
+            _col_w(sid, 1, 160),  # B: Rótulos principais
+            _col_w(sid, 2, 85),   # C: Valores numéricos
+            _col_w(sid, 3, 85),   # D: Valores numéricos
+            _col_w(sid, 4, 85),   # E: Divisor central / Valores
+            _col_w(sid, 5, 85),   # F: Valores numéricos
+            _col_w(sid, 6, 85),   # G: Valores numéricos
+            _col_w(sid, 7, 85),   # H: Valores numéricos
+            _col_w(sid, 8, 16),   # I: Margem direita (limpa)
         ]
 
-        # --- BANNER ---
+        # 2. BANNER & INFO (Tipografia e espaçamentos do De Finetti)
         if "banner" in m:
             ri = m["banner"]
             reqs += [
                 _merge(sid, ri, 1, ri+1, 8),
                 _fmt(sid, ri, 1, ri+1, 8,
                      backgroundColor=C_AZUL_900,
-                     textFormat=_tf(bold=True, size=18, color=C_BRANCO,
-                                    font_family="Google Sans Display"),
+                     textFormat=_tf(bold=True, size=16, color=C_BRANCO, font_family="Google Sans Display"),
                      **_halign("CENTER"), **_valign("MIDDLE")),
-                _row_h(sid, ri, 52),
+                _row_h(sid, ri, 48), # Altura idêntica ao De Finetti
             ]
 
-        # --- INFO BAR ---
         if "info_bar" in m:
             ri = m["info_bar"]
             reqs += [
@@ -703,112 +701,93 @@ class SheetsManager:
                      backgroundColor=C_CINZA_800,
                      textFormat=_tf(size=10, color=C_CINZA_300),
                      **_halign("CENTER"), **_valign("MIDDLE")),
-                _row_h(sid, ri, 28),
+                _row_h(sid, ri, 26),
             ]
 
-        # --- KPIs ---
+        # 3. KPIs GLOBAIS (Mantido o padrão de cores dos times)
         if "kpi_labels" in m and "kpi_values" in m:
             rl = m["kpi_labels"]
             rv = m["kpi_values"]
             reqs += [
                 _fmt(sid, rl, 1, rl+1, 8,
-                     backgroundColor=C_CINZA_100,
-                     textFormat=_tf(size=9, color=C_CINZA_500),
-                     **_halign("CENTER")),
+                     backgroundColor=C_CINZA_100, textFormat=_tf(size=9, color=C_CINZA_500), **_halign("CENTER")),
                 _row_h(sid, rl, 22),
                 _fmt(sid, rv, 1, rv+1, 5,
-                     backgroundColor=C_AZUL_50,
-                     textFormat=_tf(bold=True, size=14, color=C_AZUL_700),
+                     backgroundColor=C_AZUL_50, textFormat=_tf(bold=True, size=14, color=C_AZUL_700),
                      **_halign("CENTER"), **_valign("MIDDLE")),
                 _fmt(sid, rv, 4, rv+1, 8,
-                     backgroundColor=C_ESMERALDA_50,
-                     textFormat=_tf(bold=True, size=14, color=C_ESMERALDA_700),
+                     backgroundColor=C_ESMERALDA_50, textFormat=_tf(bold=True, size=14, color=C_ESMERALDA_700),
                      **_halign("CENTER"), **_valign("MIDDLE")),
                 _row_h(sid, rv, 40),
             ]
 
-        # --- LAÇO DOS TIMES (FORMA E ESTATÍSTICAS) ---
-        for lado, cor_sec, cor_cab in [
-            ("m", C_AZUL_900, C_AZUL_600),
-            ("v", C_ESMERALDA_900, C_ESMERALDA_600),
+        # 4. FORMA E ESTATÍSTICAS (Lógica de Color Coding e Zebra)
+        for lado, cor_sec, cor_cab, cor_bg_claro in [
+            ("m", C_AZUL_900, C_AZUL_600, C_AZUL_50),          # Paleta Mandante
+            ("v", C_ESMERALDA_900, C_ESMERALDA_600, C_ESMERALDA_50), # Paleta Visitante
         ]:
-            # 1. Forma Recente
-            sk = f"sec_forma_{lado}"
-            if sk in m:
-                ri = m[sk]
+            # --- Seção: Forma Recente ---
+            if f"sec_forma_{lado}" in m:
+                ri = m[f"sec_forma_{lado}"]
                 reqs += [
                     _merge(sid, ri, 1, ri+1, 8),
-                    _fmt(sid, ri, 1, ri+1, 8,
-                         backgroundColor=cor_sec,
-                         textFormat=_tf(bold=True, size=12, color=C_BRANCO,
-                                        font_family="Google Sans"),
+                    _fmt(sid, ri, 1, ri+1, 8, backgroundColor=cor_sec,
+                         textFormat=_tf(bold=True, size=12, color=C_BRANCO, font_family="Google Sans"),
                          **_halign("LEFT"), **_valign("MIDDLE")),
                     _row_h(sid, ri, 36),
                 ]
 
-            ck = f"forma_cab_{lado}"
-            if ck in m:
-                ri = m[ck]
+            if f"forma_cab_{lado}" in m:
+                ri = m[f"forma_cab_{lado}"]
                 reqs += [
-                    _fmt(sid, ri, 1, ri+1, 8,
-                         backgroundColor=cor_cab,
-                         textFormat=_tf(bold=True, size=10, color=C_BRANCO),
+                    _fmt(sid, ri, 1, ri+1, 8, backgroundColor=cor_cab, textFormat=_tf(bold=True, size=10, color=C_BRANCO),
                          **_halign("CENTER"), **_valign("MIDDLE")),
                     _row_h(sid, ri, 28),
                 ]
 
-            for fr in m.get(f"forma_rows_{lado}", []):
+            # [INSIGHT] Alternância matemática (i % 2) para Efeito Zebra
+            for i, fr in enumerate(m.get(f"forma_rows_{lado}", [])):
+                bg = cor_bg_claro if i % 2 == 0 else C_BRANCO
                 reqs += [
-                    _fmt(sid, fr, 1, fr+1, 8,
-                         backgroundColor=C_CINZA_50,
-                         **_halign("CENTER"), **_valign("MIDDLE")),
-                    _row_h(sid, fr, 30),
+                    _fmt(sid, fr, 1, fr+1, 8, backgroundColor=bg, **_halign("CENTER"), **_valign("MIDDLE")),
+                    _row_h(sid, fr, 28),
                 ]
 
-            # 2. Estatísticas [NOVO CÓDIGO INSERIDO AQUI]
-            sk_stats = f"sec_stats_{lado}"
-            if sk_stats in m:
-                ri = m[sk_stats]
+            # --- Seção: Estatísticas ---
+            if f"sec_stats_{lado}" in m:
+                ri = m[f"sec_stats_{lado}"]
                 reqs += [
                     _merge(sid, ri, 1, ri+1, 8),
-                    _fmt(sid, ri, 1, ri+1, 8,
-                         backgroundColor=cor_sec,
-                         textFormat=_tf(bold=True, size=12, color=C_BRANCO,
-                                        font_family="Google Sans"),
+                    _fmt(sid, ri, 1, ri+1, 8, backgroundColor=cor_sec,
+                         textFormat=_tf(bold=True, size=12, color=C_BRANCO, font_family="Google Sans"),
                          **_halign("LEFT"), **_valign("MIDDLE")),
                     _row_h(sid, ri, 36),
                 ]
 
-            ck_stats = f"stats_cab_{lado}"
-            if ck_stats in m:
-                ri = m[ck_stats]
+            if f"stats_cab_{lado}" in m:
+                ri = m[f"stats_cab_{lado}"]
                 reqs += [
-                    _fmt(sid, ri, 1, ri+1, 8,
-                         backgroundColor=cor_cab,
-                         textFormat=_tf(bold=True, size=10, color=C_BRANCO),
+                    _fmt(sid, ri, 1, ri+1, 8, backgroundColor=cor_cab, textFormat=_tf(bold=True, size=10, color=C_BRANCO),
                          **_halign("CENTER"), **_valign("MIDDLE")),
                     _row_h(sid, ri, 28),
                 ]
 
-            for sr in m.get(f"stats_rows_{lado}", []):
+            for i, sr in enumerate(m.get(f"stats_rows_{lado}", [])):
+                bg = cor_bg_claro if i % 2 == 0 else C_BRANCO
                 reqs += [
-                    _fmt(sid, sr, 1, sr+1, 8,
-                         backgroundColor=C_BRANCO,  # Intercala visualmente com as Formas (Cinza)
-                         **_halign("CENTER"), **_valign("MIDDLE")),
-                    _fmt(sid, sr, 1, sr+1, 2,       # Rótulo de texto da stat fica alinhado à esquerda
-                         **_halign("LEFT")),
-                    _row_h(sid, sr, 26),
+                    _fmt(sid, sr, 1, sr+1, 8, backgroundColor=bg, **_halign("CENTER"), **_valign("MIDDLE")),
+                    # Destaque à esquerda apenas para a primeira coluna (Rótulos)
+                    _fmt(sid, sr, 1, sr+1, 2, textFormat=_tf(bold=True, size=10, color=C_CINZA_700), **_halign("LEFT")),
+                    _row_h(sid, sr, 28),
                 ]
 
-        # --- ODDS DO MERCADO [NOVO CÓDIGO INSERIDO AQUI] ---
+        # 5. ODDS DO MERCADO (Estilo da "Matriz" do De Finetti)
         if "sec_odds" in m:
             ri = m["sec_odds"]
             reqs += [
                 _merge(sid, ri, 1, ri+1, 8),
-                _fmt(sid, ri, 1, ri+1, 8,
-                     backgroundColor=C_AMARELO,
-                     textFormat=_tf(bold=True, size=12, color=C_PRETO,
-                                    font_family="Google Sans"),
+                _fmt(sid, ri, 1, ri+1, 8, backgroundColor=C_CINZA_800,
+                     textFormat=_tf(bold=True, size=12, color=C_BRANCO, font_family="Google Sans"),
                      **_halign("LEFT"), **_valign("MIDDLE")),
                 _row_h(sid, ri, 36),
             ]
@@ -816,23 +795,20 @@ class SheetsManager:
         if "cab_odds" in m:
             ri = m["cab_odds"]
             reqs += [
-                _fmt(sid, ri, 1, ri+1, 8,
-                     backgroundColor=C_CINZA_800,
-                     textFormat=_tf(bold=True, size=10, color=C_BRANCO),
+                _fmt(sid, ri, 1, ri+1, 8, backgroundColor=C_CINZA_700, textFormat=_tf(bold=True, size=10, color=C_BRANCO),
                      **_halign("CENTER"), **_valign("MIDDLE")),
                 _row_h(sid, ri, 28),
             ]
 
-        for odds_r in m.get("odds_rows", []):
+        for i, odds_r in enumerate(m.get("odds_rows", [])):
+            bg = C_AMARELO_BG if i % 2 == 0 else C_BRANCO
             reqs += [
-                _fmt(sid, odds_r, 1, odds_r+1, 8,
-                     backgroundColor=C_CINZA_50,
-                     textFormat=_tf(bold=True, size=11, color=C_CINZA_800),
+                _fmt(sid, odds_r, 1, odds_r+1, 8, backgroundColor=bg, textFormat=_tf(bold=True, size=11, color=C_CINZA_800),
                      **_halign("CENTER"), **_valign("MIDDLE")),
                 _row_h(sid, odds_r, 30),
             ]
 
-        # Congelar primeiras 4 linhas (Para leitura não quebrar durante scroll)
+        # Congelar as 4 primeiras linhas (mantém banner, info e KPIs fixos no topo no scroll)
         reqs.append(_freeze(sid, rows=4))
         self._batch(reqs)
 
