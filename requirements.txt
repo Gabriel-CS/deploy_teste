@@ -8,3 +8,4 @@ google-auth-httplib2>=0.1.0
 google-auth>=2.29
 python-dotenv>=1.0
 lxml>=5.2          # parser HTML mais rápido para BeautifulSoup
+gspread
