@@ -1,12 +1,12 @@
 {
   "estado": "rodando",
   "campeonato": "Brasileirão Série A",
-  "partida": "São Paulo x Botafogo",
-  "ultima_atividade": "2026-05-18T21:46:33.863573",
-  "mensagem_status": "Monitorando — campeonato: 'Brasileirão Série A' | partida: 'São Paulo x Botafogo'",
+  "partida": "Flamengo x Palmeiras",
+  "ultima_atividade": "2026-05-18T21:52:26.745758",
+  "mensagem_status": "Monitorando — campeonato: 'Brasileirão Série A' | partida: 'Flamengo x Palmeiras'",
   "total_partidas_cache": 11,
   "partidas_coletadas": 20,
   "comando": "",
   "pid": 12776,
-  "_atualizado_em": "2026-05-18T21:46:33.863763"
+  "_atualizado_em": "2026-05-18T21:52:26.746038"
 }

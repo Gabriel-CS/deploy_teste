@@ -1,26 +1,3 @@
-#!/usr/bin/env python3
-"""
-main.py — Loop contínuo de sincronização Sheets ↔ APWin
-=========================================================
-
-Comportamento:
-  • Inicia automaticamente ao ser invocado pelo app.py (Streamlit).
-  • Coleta campeonatos.json automaticamente se o arquivo não existir.
-  • Fica em polling do Google Sheets a cada POLL_INTERVAL segundos.
-  • Ao detectar mudança de campeonato:
-      → Coleta a lista de partidas (cache de 1 h) e atualiza o dropdown.
-      → NÃO faz pre-fetch das stats — coleta apenas sob demanda.
-  • Ao detectar mudança de partida:
-      → Cache hit  → publica no dashboard imediatamente.
-      → Cache miss → busca no APWin, salva no cache, publica.
-
-Uso:
-  python main.py                  # loop normal (prefetch desativado)
-  python main.py --com-prefetch   # habilita pre-fetch em background
-  python main.py --setup          # configura a planilha (1ª vez)
-  python main.py --poll 10        # intervalo de polling em segundos
-"""
-
 import argparse
 import json
 import logging
