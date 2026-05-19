@@ -220,16 +220,24 @@ class SheetsManager:
     # ───────────────────────────────────────────────────────────────────────
 
     def conectar(self) -> "SheetsManager":
-        """
-        Cria (ou recria) a conexão com o Google Sheets.
-        Guarda as credenciais em self._creds para poder fazer refresh
-        sem recriar o objeto inteiro.
-        """
-        self._creds = Credentials.from_service_account_file(
-            CREDENTIALS_FILE, scopes=SCOPES)
-        gc = gspread.authorize(self._creds)
+        try:
+            import streamlit as st
+            # Verifica se o bloco de credenciais existe no st.secrets
+            usar_secrets = "gcp_service_account" in st.secrets
+        except ImportError:
+            # Se der erro de importação, significa que estamos rodando o main.py localmente
+            usar_secrets = False
+
+        if usar_secrets:
+            # NUVEM: Lê o dicionário de credenciais diretamente da memória
+            info = dict(st.secrets["gcp_service_account"])
+            creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+        else:
+            # LOCAL: Lê do arquivo JSON físico
+            creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
+
+        gc = gspread.authorize(creds)
         self.planilha = gc.open(SPREADSHEET_NAME)
-        self._sheet_ids.clear()   # invalida cache de IDs ao reconectar
         log.info(f"Conectado: {self.planilha.title}")
         return self
 
