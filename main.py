@@ -225,6 +225,25 @@ def publicar_partida(nome: str, sm) -> bool:
             cached["info"], cached["stats_m"], cached["stats_v"], cached["odds"]
         )
 
+        # ── Análise de De Finetti ────────────────────────────────────────
+        from src.scraper_stats import get_stat
+        from src.de_finetti   import parse_xg
+
+        xg_m_str = get_stat(cached["stats_m"], "xG")
+        xg_v_str = get_stat(cached["stats_v"], "xG")
+        xg_m     = parse_xg(xg_m_str)
+        xg_v     = parse_xg(xg_v_str)
+
+        if xg_m is not None and xg_v is not None:
+            sm.escrever_de_finetti(cached["info"], xg_m, xg_v)
+        else:
+            log.warning(
+                f"xG ausente ou inválido para '{nome}' "
+                f"(xG_m={xg_m_str!r}, xG_v={xg_v_str!r}) — "
+                "aba de_finetti não será gerada."
+            )
+        # ── fim De Finetti ───────────────────────────────────────────────
+
         mandante  = cached["info"].get("mandante", "?")
         visitante = cached["info"].get("visitante", "?")
         ts = datetime.now().strftime("%H:%M:%S")
@@ -344,7 +363,7 @@ def cmd_setup(sm, campeonatos: dict) -> None:
     log.info("Setup da planilha...")
     sm.configurar_controle(list(campeonatos.keys()))
     sm.remover_dados_brutos()
-    for nome in ("dashboard", "historico"):
+    for nome in ("dashboard", "historico", "de_finetti"):
         sm._aba(nome)
     print("\n  ✅ Planilha configurada.")
     print("  → Selecione um campeonato em C3 e execute: python main.py")

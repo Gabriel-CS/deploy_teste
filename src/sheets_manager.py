@@ -61,9 +61,10 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-ABA_CONTROLE  = "controle"
-ABA_DASHBOARD = "dashboard"
-ABA_HISTORICO = "historico"
+ABA_CONTROLE   = "controle"
+ABA_DASHBOARD  = "dashboard"
+ABA_HISTORICO  = "historico"
+ABA_DE_FINETTI = "de_finetti"
 
 CELL_CAMPEONATO    = "C3"
 CELL_PARTIDA       = "C4"
@@ -204,6 +205,12 @@ def _cond_contains(sid, r1, c1, r2, c2, val, bg, fg=None):
             "condition": {"type": "TEXT_CONTAINS", "values": [{"userEnteredValue": val}]},
             "format": fmt,
         }}, "index": 0}}
+
+def _barra(prob: float, comprimento: int = 20) -> str:
+    """Gera uma barra visual de texto proporcional à probabilidade."""
+    filled = round(prob * comprimento)
+    return "█" * filled + "░" * (comprimento - filled) + f"  {prob:.1%}"
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # CLASSE PRINCIPAL
@@ -635,8 +642,13 @@ class SheetsManager:
 
             cab2 = stats[0] if stats else []
             m[f"stats_cab_{prefix}"] = row("", *cab2)
+            
+            # [CORREÇÃO]: Agora rastreamos as linhas das estatísticas 
+            # para aplicar o batchUpdate posteriormente.
+            m[f"stats_rows_{prefix}"] = []
             for data_row in stats[1:]:
-                row("", *data_row)
+                idx = row("", *data_row)
+                m[f"stats_rows_{prefix}"].append(idx)
 
             row()
 
@@ -657,7 +669,20 @@ class SheetsManager:
     def _formatar_dashboard(self, sid, mandante, visitante, m):
         reqs = []
 
-        # Banner
+        # [NOVO]: Definição de larguras para garantir um grid esteticamente harmônico
+        reqs += [
+            _col_w(sid, 0, 20),   # Coluna A (Margem)
+            _col_w(sid, 1, 160),  # Coluna B (Rótulos amplos)
+            _col_w(sid, 2, 85),   # Coluna C (Valores numéricos)
+            _col_w(sid, 3, 85),   # Coluna D
+            _col_w(sid, 4, 85),   # Coluna E (Divisor central)
+            _col_w(sid, 5, 85),   # Coluna F
+            _col_w(sid, 6, 85),   # Coluna G
+            _col_w(sid, 7, 85),   # Coluna H
+            _col_w(sid, 8, 20),   # Margem direita sobressalente
+        ]
+
+        # --- BANNER ---
         if "banner" in m:
             ri = m["banner"]
             reqs += [
@@ -670,6 +695,7 @@ class SheetsManager:
                 _row_h(sid, ri, 52),
             ]
 
+        # --- INFO BAR ---
         if "info_bar" in m:
             ri = m["info_bar"]
             reqs += [
@@ -680,6 +706,7 @@ class SheetsManager:
                 _row_h(sid, ri, 28),
             ]
 
+        # --- KPIs ---
         if "kpi_labels" in m and "kpi_values" in m:
             rl = m["kpi_labels"]
             rv = m["kpi_values"]
@@ -700,10 +727,12 @@ class SheetsManager:
                 _row_h(sid, rv, 40),
             ]
 
+        # --- LAÇO DOS TIMES (FORMA E ESTATÍSTICAS) ---
         for lado, cor_sec, cor_cab in [
             ("m", C_AZUL_900, C_AZUL_600),
             ("v", C_ESMERALDA_900, C_ESMERALDA_600),
         ]:
+            # 1. Forma Recente
             sk = f"sec_forma_{lado}"
             if sk in m:
                 ri = m[sk]
@@ -736,7 +765,74 @@ class SheetsManager:
                     _row_h(sid, fr, 30),
                 ]
 
-        # Congelar primeiras 4 linhas
+            # 2. Estatísticas [NOVO CÓDIGO INSERIDO AQUI]
+            sk_stats = f"sec_stats_{lado}"
+            if sk_stats in m:
+                ri = m[sk_stats]
+                reqs += [
+                    _merge(sid, ri, 1, ri+1, 8),
+                    _fmt(sid, ri, 1, ri+1, 8,
+                         backgroundColor=cor_sec,
+                         textFormat=_tf(bold=True, size=12, color=C_BRANCO,
+                                        font_family="Google Sans"),
+                         **_halign("LEFT"), **_valign("MIDDLE")),
+                    _row_h(sid, ri, 36),
+                ]
+
+            ck_stats = f"stats_cab_{lado}"
+            if ck_stats in m:
+                ri = m[ck_stats]
+                reqs += [
+                    _fmt(sid, ri, 1, ri+1, 8,
+                         backgroundColor=cor_cab,
+                         textFormat=_tf(bold=True, size=10, color=C_BRANCO),
+                         **_halign("CENTER"), **_valign("MIDDLE")),
+                    _row_h(sid, ri, 28),
+                ]
+
+            for sr in m.get(f"stats_rows_{lado}", []):
+                reqs += [
+                    _fmt(sid, sr, 1, sr+1, 8,
+                         backgroundColor=C_BRANCO,  # Intercala visualmente com as Formas (Cinza)
+                         **_halign("CENTER"), **_valign("MIDDLE")),
+                    _fmt(sid, sr, 1, sr+1, 2,       # Rótulo de texto da stat fica alinhado à esquerda
+                         **_halign("LEFT")),
+                    _row_h(sid, sr, 26),
+                ]
+
+        # --- ODDS DO MERCADO [NOVO CÓDIGO INSERIDO AQUI] ---
+        if "sec_odds" in m:
+            ri = m["sec_odds"]
+            reqs += [
+                _merge(sid, ri, 1, ri+1, 8),
+                _fmt(sid, ri, 1, ri+1, 8,
+                     backgroundColor=C_AMARELO,
+                     textFormat=_tf(bold=True, size=12, color=C_PRETO,
+                                    font_family="Google Sans"),
+                     **_halign("LEFT"), **_valign("MIDDLE")),
+                _row_h(sid, ri, 36),
+            ]
+
+        if "cab_odds" in m:
+            ri = m["cab_odds"]
+            reqs += [
+                _fmt(sid, ri, 1, ri+1, 8,
+                     backgroundColor=C_CINZA_800,
+                     textFormat=_tf(bold=True, size=10, color=C_BRANCO),
+                     **_halign("CENTER"), **_valign("MIDDLE")),
+                _row_h(sid, ri, 28),
+            ]
+
+        for odds_r in m.get("odds_rows", []):
+            reqs += [
+                _fmt(sid, odds_r, 1, odds_r+1, 8,
+                     backgroundColor=C_CINZA_50,
+                     textFormat=_tf(bold=True, size=11, color=C_CINZA_800),
+                     **_halign("CENTER"), **_valign("MIDDLE")),
+                _row_h(sid, odds_r, 30),
+            ]
+
+        # Congelar primeiras 4 linhas (Para leitura não quebrar durante scroll)
         reqs.append(_freeze(sid, rows=4))
         self._batch(reqs)
 
@@ -803,6 +899,363 @@ class SheetsManager:
             log.info(f"Histórico: linha {nova_linha} inserida.")
 
         self._executar_com_retry(_escrever)
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # DE FINETTI — ESCRITA & FORMATAÇÃO
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def escrever_de_finetti(self, info: dict, xg_m: float, xg_v: float) -> None:
+        """
+        Calcula e publica a análise de De Finetti na aba 'de_finetti'.
+
+        Args:
+            info:  dicionário com 'mandante', 'visitante', 'campeonato',
+                   'data_hora' (mesmo formato de escrever_dashboard)
+            xg_m:  xG do mandante (float > 0)
+            xg_v:  xG do visitante (float > 0)
+        """
+        from src.de_finetti import calcular, MAX_GOLS
+
+        def _escrever():
+            self._remover_aba_se_existir(ABA_DE_FINETTI)
+            aba = self._aba(ABA_DE_FINETTI)
+            sid = aba.id
+
+            mandante  = info.get("mandante",  "Mandante")
+            visitante = info.get("visitante", "Visitante")
+
+            res  = calcular(xg_m, xg_v)
+            gols = list(range(MAX_GOLS + 1))
+
+            linhas: list[list] = []
+            m: dict = {}
+
+            def row(*c):
+                linhas.append(list(c))
+                return len(linhas) - 1
+
+            # ── Banner ───────────────────────────────────────────────────
+            row()
+            m["banner"] = row(
+                "", f"⚽  {mandante}   ×   {visitante}   —   Análise de De Finetti"
+            )
+            m["info_bar"] = row(
+                "", info.get("campeonato", ""), "",
+                info.get("data_hora", ""),
+                "", f"xG: {xg_m:.2f} × {xg_v:.2f}"
+            )
+            row()
+
+            # ── Seção 1: Distribuição de Poisson ─────────────────────────
+            m["sec_poisson"] = row("", "📐  DISTRIBUIÇÃO DE POISSON")
+            row()
+            m["pois_cab"] = row(
+                "", "Gols esperados (xG)", *[str(k) for k in gols]
+            )
+            m["pois_m"] = row(
+                "", f"🏠  {mandante}  (xG = {xg_m:.2f})",
+                *[f"{p:.2%}" for p in res.probs_poisson_m]
+            )
+            m["pois_v"] = row(
+                "", f"✈️  {visitante}  (xG = {xg_v:.2f})",
+                *[f"{p:.2%}" for p in res.probs_poisson_v]
+            )
+            row()
+
+            # ── Seção 2: Matriz de placares ───────────────────────────────
+            m["sec_matriz"] = row(
+                "", "⚽  MATRIZ DE PLACARES  (P[gols_casa = i, gols_fora = j])"
+            )
+            row()
+            m["mat_cab"] = row("", "Casa ↓  Fora →", *[str(k) for k in gols])
+            m["mat_rows"]  = []
+            m["mat_diag"]  = []
+            m["mat_lower"] = []
+            m["mat_upper"] = []
+
+            for i, linha_mat in enumerate(res.matriz):
+                ri = row("", str(i), *[f"{v:.2%}" for v in linha_mat])
+                m["mat_rows"].append(ri)
+                for j in range(len(linha_mat)):
+                    col_offset = 2 + j
+                    if i == j:
+                        m["mat_diag"].append((ri, col_offset))
+                    elif i > j:
+                        m["mat_lower"].append((ri, col_offset))
+                    else:
+                        m["mat_upper"].append((ri, col_offset))
+            row()
+
+            # ── Seção 3: Probabilidades do resultado ──────────────────────
+            m["sec_prob"] = row("", "📊  PROBABILIDADES DO RESULTADO")
+            row()
+            m["prob_cab"] = row("", "Resultado", "Probabilidade", "Barra visual")
+            m["prob_m"]   = row(
+                "", f"🏠  {mandante} vence",
+                f"{res.resultado.mandante:.1%}",
+                _barra(res.resultado.mandante),
+            )
+            m["prob_emp"] = row(
+                "", "🤝  Empate",
+                f"{res.resultado.empate:.1%}",
+                _barra(res.resultado.empate),
+            )
+            m["prob_v"]   = row(
+                "", f"✈️  {visitante} vence",
+                f"{res.resultado.visitante:.1%}",
+                _barra(res.resultado.visitante),
+            )
+            row()
+
+            # ── Seção 4: Distância de De Finetti ──────────────────────────
+            m["sec_finetti"] = row("", "🎯  DISTÂNCIA DE DE FINETTI")
+            row()
+            m["fin_cab"] = row("", "Evento", "Distância", "Interpretação")
+
+            dist    = res.distancia
+            min_d   = min(
+                dist.se_mandante_ganhar,
+                dist.se_empate,
+                dist.se_visitante_ganhar,
+            )
+
+            def _fav_label(d_val):
+                return (
+                    "★  FAVORITO  (menor distância)"
+                    if abs(d_val - min_d) < 1e-9 else ""
+                )
+
+            m["fin_m"]   = row(
+                "", f"🏠  {mandante} vence",
+                round(dist.se_mandante_ganhar, 6),
+                _fav_label(dist.se_mandante_ganhar),
+            )
+            m["fin_emp"] = row(
+                "", "🤝  Empate",
+                round(dist.se_empate, 6),
+                _fav_label(dist.se_empate),
+            )
+            m["fin_v"]   = row(
+                "", f"✈️  {visitante} vence",
+                round(dist.se_visitante_ganhar, 6),
+                _fav_label(dist.se_visitante_ganhar),
+            )
+            row()
+            m["rodape"] = row(
+                "",
+                "ℹ️ Quanto menor a distância de De Finetti, maior a "
+                "'confiança' do modelo naquele desfecho.",
+            )
+
+            aba.update("A1", linhas, value_input_option="USER_ENTERED")
+            time.sleep(0.5)
+            self._formatar_de_finetti(sid, m, res)
+            log.info(
+                f"De Finetti: {len(linhas)} linhas escritas "
+                f"para {mandante} × {visitante}."
+            )
+
+        self._executar_com_retry(_escrever)
+
+    def _formatar_de_finetti(self, sid, m, res) -> None:
+        """Aplica formatação premium à aba de_finetti via batchUpdate."""
+        from src.de_finetti import MAX_GOLS
+
+        N          = MAX_GOLS + 1   # 6 colunas de gols (0–5)
+        TOTAL_COLS = N + 2          # espaçador A + label B + 6 valores
+
+        reqs = []
+
+        # ── Larguras de coluna ─────────────────────────────────────────
+        reqs += [
+            _col_w(sid, 0, 16),
+            _col_w(sid, 1, 210),
+            _col_w(sid, 2, 90),
+            _col_w(sid, 3, 90),
+            _col_w(sid, 4, 90),
+            _col_w(sid, 5, 90),
+            _col_w(sid, 6, 90),
+            _col_w(sid, 7, 90),
+            _col_w(sid, 8, 270),
+        ]
+
+        # ── Banner ────────────────────────────────────────────────────
+        if "banner" in m:
+            ri = m["banner"]
+            reqs += [
+                _merge(sid, ri, 1, ri+1, TOTAL_COLS + 2),
+                _fmt(sid, ri, 1, ri+1, TOTAL_COLS + 2,
+                     backgroundColor=C_AZUL_900,
+                     textFormat=_tf(bold=True, size=16, color=C_BRANCO,
+                                    font_family="Google Sans Display"),
+                     **_halign("CENTER"), **_valign("MIDDLE")),
+                _row_h(sid, ri, 48),
+            ]
+
+        if "info_bar" in m:
+            ri = m["info_bar"]
+            reqs += [
+                _fmt(sid, ri, 1, ri+1, TOTAL_COLS + 2,
+                     backgroundColor=C_CINZA_800,
+                     textFormat=_tf(size=10, color=C_CINZA_300),
+                     **_halign("CENTER"), **_valign("MIDDLE")),
+                _row_h(sid, ri, 26),
+            ]
+
+        # ── Cabeçalhos de seção ───────────────────────────────────────
+        for sec_key, cor in [
+            ("sec_poisson", C_AZUL_900),
+            ("sec_matriz",  C_CINZA_800),
+            ("sec_prob",    C_ESMERALDA_900),
+            ("sec_finetti", C_AZUL_900),
+        ]:
+            if sec_key in m:
+                ri = m[sec_key]
+                reqs += [
+                    _merge(sid, ri, 1, ri+1, TOTAL_COLS + 2),
+                    _fmt(sid, ri, 1, ri+1, TOTAL_COLS + 2,
+                         backgroundColor=cor,
+                         textFormat=_tf(bold=True, size=12, color=C_BRANCO,
+                                        font_family="Google Sans"),
+                         **_halign("LEFT"), **_valign("MIDDLE")),
+                    _row_h(sid, ri, 36),
+                ]
+
+        # ── Poisson ───────────────────────────────────────────────────
+        if "pois_cab" in m:
+            ri = m["pois_cab"]
+            reqs += [
+                _fmt(sid, ri, 1, ri+1, TOTAL_COLS,
+                     backgroundColor=C_AZUL_600,
+                     textFormat=_tf(bold=True, size=10, color=C_BRANCO),
+                     **_halign("CENTER"), **_valign("MIDDLE")),
+                _row_h(sid, ri, 28),
+            ]
+        for row_key, bg in [("pois_m", C_AZUL_50), ("pois_v", C_ESMERALDA_50)]:
+            if row_key in m:
+                ri = m[row_key]
+                reqs += [
+                    _fmt(sid, ri, 1, ri+1, TOTAL_COLS,
+                         backgroundColor=bg,
+                         **_halign("CENTER"), **_valign("MIDDLE")),
+                    _row_h(sid, ri, 30),
+                ]
+
+        # ── Matriz de placares ────────────────────────────────────────
+        if "mat_cab" in m:
+            ri = m["mat_cab"]
+            reqs += [
+                _fmt(sid, ri, 1, ri+1, TOTAL_COLS,
+                     backgroundColor=C_CINZA_700,
+                     textFormat=_tf(bold=True, size=10, color=C_BRANCO),
+                     **_halign("CENTER"), **_valign("MIDDLE")),
+                _row_h(sid, ri, 28),
+            ]
+        for ri in m.get("mat_rows", []):
+            reqs += [
+                _fmt(sid, ri, 1, ri+1, TOTAL_COLS,
+                     backgroundColor=C_CINZA_50,
+                     **_halign("CENTER"), **_valign("MIDDLE")),
+                _fmt(sid, ri, 1, ri+1, 2,
+                     backgroundColor=C_CINZA_200,
+                     textFormat=_tf(bold=True, size=10, color=C_CINZA_700),
+                     **_halign("CENTER")),
+                _row_h(sid, ri, 28),
+            ]
+        for (ri, ci) in m.get("mat_diag", []):
+            reqs.append(_fmt(sid, ri, ci, ri+1, ci+1,
+                             backgroundColor=C_AMARELO_BG,
+                             textFormat=_tf(bold=True, size=9, color=C_AMARELO)))
+        for (ri, ci) in m.get("mat_lower", []):
+            reqs.append(_fmt(sid, ri, ci, ri+1, ci+1,
+                             backgroundColor=C_AZUL_100,
+                             textFormat=_tf(size=9, color=C_AZUL_700)))
+        for (ri, ci) in m.get("mat_upper", []):
+            reqs.append(_fmt(sid, ri, ci, ri+1, ci+1,
+                             backgroundColor=C_ESMERALDA_100,
+                             textFormat=_tf(size=9, color=C_ESMERALDA_700)))
+
+        # ── Probabilidades do resultado ───────────────────────────────
+        if "prob_cab" in m:
+            ri = m["prob_cab"]
+            reqs += [
+                _fmt(sid, ri, 1, ri+1, 5,
+                     backgroundColor=C_ESMERALDA_600,
+                     textFormat=_tf(bold=True, size=10, color=C_BRANCO),
+                     **_halign("CENTER"), **_valign("MIDDLE")),
+                _row_h(sid, ri, 28),
+            ]
+        prob_rows = [
+            ("prob_m",   res.resultado.mandante,   C_AZUL_50,      C_AZUL_700),
+            ("prob_emp", res.resultado.empate,     C_AMARELO_BG,   C_AMARELO),
+            ("prob_v",   res.resultado.visitante,  C_ESMERALDA_50, C_ESMERALDA_700),
+        ]
+        for (key, prob, bg, fg) in prob_rows:
+            if key in m:
+                ri = m[key]
+                reqs += [
+                    _fmt(sid, ri, 1, ri+1, 5,
+                         backgroundColor=bg,
+                         **_halign("CENTER"), **_valign("MIDDLE")),
+                    _fmt(sid, ri, 2, ri+1, 3,
+                         textFormat=_tf(bold=True, size=14, color=fg),
+                         **_halign("CENTER")),
+                    _row_h(sid, ri, 36),
+                ]
+
+        # ── Distância de De Finetti ───────────────────────────────────
+        if "fin_cab" in m:
+            ri = m["fin_cab"]
+            reqs += [
+                _fmt(sid, ri, 1, ri+1, 5,
+                     backgroundColor=C_AZUL_600,
+                     textFormat=_tf(bold=True, size=10, color=C_BRANCO),
+                     **_halign("CENTER"), **_valign("MIDDLE")),
+                _row_h(sid, ri, 28),
+            ]
+        dist  = res.distancia
+        min_d = min(
+            dist.se_mandante_ganhar,
+            dist.se_empate,
+            dist.se_visitante_ganhar,
+        )
+        for (key, d_val) in [
+            ("fin_m",   dist.se_mandante_ganhar),
+            ("fin_emp", dist.se_empate),
+            ("fin_v",   dist.se_visitante_ganhar),
+        ]:
+            if key in m:
+                ri     = m[key]
+                is_fav = abs(d_val - min_d) < 1e-9
+                bg     = C_VERDE_BG  if is_fav else C_CINZA_50
+                fg_val = C_VERDE     if is_fav else C_CINZA_700
+                reqs += [
+                    _fmt(sid, ri, 1, ri+1, 5,
+                         backgroundColor=bg,
+                         **_halign("CENTER"), **_valign("MIDDLE")),
+                    _fmt(sid, ri, 2, ri+1, 3,
+                         textFormat=_tf(bold=is_fav, size=12, color=fg_val),
+                         **_halign("CENTER")),
+                    _fmt(sid, ri, 3, ri+1, 5,
+                         textFormat=_tf(bold=is_fav, size=10, color=fg_val),
+                         **_halign("LEFT")),
+                    _row_h(sid, ri, 34),
+                ]
+
+        # ── Rodapé ────────────────────────────────────────────────────
+        if "rodape" in m:
+            ri = m["rodape"]
+            reqs += [
+                _merge(sid, ri, 1, ri+1, TOTAL_COLS + 2),
+                _fmt(sid, ri, 1, ri+1, TOTAL_COLS + 2,
+                     backgroundColor=C_CINZA_100,
+                     textFormat=_tf(size=9, color=C_CINZA_500, italic=True),
+                     **_halign("CENTER"), **_valign("MIDDLE")),
+                _row_h(sid, ri, 28),
+            ]
+
+        reqs.append(_freeze(sid, rows=3))
+        self._batch(reqs)
 
     # ═══════════════════════════════════════════════════════════════════════
     # LIMPEZA — REMOÇÃO DE ABA LEGADA

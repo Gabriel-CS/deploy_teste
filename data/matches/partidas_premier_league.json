@@ -1,56 +1,8 @@
 {
   "_meta": {
     "campeonato": "Premier League",
-    "coletado_em": "2026-05-14T07:57:04.897812",
+    "coletado_em": "2026-05-18T21:59:59.058876",
     "total": 20
-  },
-  "Aston Villa x Liverpool": {
-    "link": "https://www.apwin.com/br/jogo/liverpool-aston-villa/bAmcO/",
-    "slug": "bAmcO",
-    "home": "Aston Villa",
-    "away": "Liverpool"
-  },
-  "Manchester United x Nottingham Forest": {
-    "link": "https://www.apwin.com/br/jogo/manchester-united-nottingham-forest/btgsf/",
-    "slug": "btgsf",
-    "home": "Manchester United",
-    "away": "Nottingham Forest"
-  },
-  "Brentford x Crystal Palace": {
-    "link": "https://www.apwin.com/br/jogo/crystal-palace-brentford/JDms/",
-    "slug": "JDms",
-    "home": "Brentford",
-    "away": "Crystal Palace"
-  },
-  "Wolverhampton x Fulham": {
-    "link": "https://www.apwin.com/br/jogo/wolverhampton-wanderers-fulham/cFgJw/",
-    "slug": "cFgJw",
-    "home": "Wolverhampton",
-    "away": "Fulham"
-  },
-  "Everton x Sunderland": {
-    "link": "https://www.apwin.com/br/jogo/everton-sunderland/QIZD/",
-    "slug": "QIZD",
-    "home": "Everton",
-    "away": "Sunderland"
-  },
-  "Leeds x Brighton": {
-    "link": "https://www.apwin.com/br/jogo/brighton-hove-albion-leeds-united/cyaWv/",
-    "slug": "cyaWv",
-    "home": "Leeds",
-    "away": "Brighton"
-  },
-  "Newcastle x West Ham": {
-    "link": "https://www.apwin.com/br/jogo/west-ham-united-newcastle-united/bOxKp/",
-    "slug": "bOxKp",
-    "home": "Newcastle",
-    "away": "West Ham"
-  },
-  "Arsenal x Burnley": {
-    "link": "https://www.apwin.com/br/jogo/arsenal-burnley/hfQV/",
-    "slug": "hfQV",
-    "home": "Arsenal",
-    "away": "Burnley"
   },
   "Bournemouth x Manchester City": {
     "link": "https://www.apwin.com/br/jogo/manchester-city-afc-bournemouth/vryz/",
@@ -64,6 +16,102 @@
     "home": "Chelsea",
     "away": "Tottenham"
   },
+  "West Ham x Leeds": {
+    "link": "https://www.apwin.com/br/jogo/west-ham-united-leeds-united/bOxQD/",
+    "slug": "bOxQD",
+    "home": "West Ham",
+    "away": "Leeds"
+  },
+  "Brighton x Manchester United": {
+    "link": "https://www.apwin.com/br/jogo/manchester-united-brighton-hove-albion/btgmc/",
+    "slug": "btgmc",
+    "home": "Brighton",
+    "away": "Manchester United"
+  },
+  "Crystal Palace x Arsenal": {
+    "link": "https://www.apwin.com/br/jogo/arsenal-crystal-palace/hfQT/",
+    "slug": "hfQT",
+    "home": "Crystal Palace",
+    "away": "Arsenal"
+  },
+  "Nottingham Forest x Bournemouth": {
+    "link": "https://www.apwin.com/br/jogo/afc-bournemouth-nottingham-forest/bmaBr/",
+    "slug": "bmaBr",
+    "home": "Nottingham Forest",
+    "away": "Bournemouth"
+  },
+  "Sunderland x Chelsea": {
+    "link": "https://www.apwin.com/br/jogo/chelsea-sunderland/bHrWj/",
+    "slug": "bHrWj",
+    "home": "Sunderland",
+    "away": "Chelsea"
+  },
+  "Fulham x Newcastle": {
+    "link": "https://www.apwin.com/br/jogo/newcastle-united-fulham/ccJus/",
+    "slug": "ccJus",
+    "home": "Fulham",
+    "away": "Newcastle"
+  },
+  "Tottenham x Everton": {
+    "link": "https://www.apwin.com/br/jogo/tottenham-hotspur-everton/olHI/",
+    "slug": "olHI",
+    "home": "Tottenham",
+    "away": "Everton"
+  },
+  "Manchester City x Aston Villa": {
+    "link": "https://www.apwin.com/br/jogo/manchester-city-aston-villa/vryG/",
+    "slug": "vryG",
+    "home": "Manchester City",
+    "away": "Aston Villa"
+  },
+  "Arsenal x Burnley": {
+    "link": "https://www.apwin.com/br/jogo/arsenal-burnley/hfQV/",
+    "slug": "hfQV",
+    "home": "Arsenal",
+    "away": "Burnley"
+  },
+  "Newcastle x West Ham": {
+    "link": "https://www.apwin.com/br/jogo/west-ham-united-newcastle-united/bOxKp/",
+    "slug": "bOxKp",
+    "home": "Newcastle",
+    "away": "West Ham"
+  },
+  "Wolverhampton x Fulham": {
+    "link": "https://www.apwin.com/br/jogo/wolverhampton-wanderers-fulham/cFgJw/",
+    "slug": "cFgJw",
+    "home": "Wolverhampton",
+    "away": "Fulham"
+  },
+  "Brentford x Crystal Palace": {
+    "link": "https://www.apwin.com/br/jogo/crystal-palace-brentford/JDms/",
+    "slug": "JDms",
+    "home": "Brentford",
+    "away": "Crystal Palace"
+  },
+  "Leeds x Brighton": {
+    "link": "https://www.apwin.com/br/jogo/brighton-hove-albion-leeds-united/cyaWv/",
+    "slug": "cyaWv",
+    "home": "Leeds",
+    "away": "Brighton"
+  },
+  "Everton x Sunderland": {
+    "link": "https://www.apwin.com/br/jogo/everton-sunderland/QIZD/",
+    "slug": "QIZD",
+    "home": "Everton",
+    "away": "Sunderland"
+  },
+  "Manchester United x Nottingham Forest": {
+    "link": "https://www.apwin.com/br/jogo/manchester-united-nottingham-forest/btgsf/",
+    "slug": "btgsf",
+    "home": "Manchester United",
+    "away": "Nottingham Forest"
+  },
+  "Aston Villa x Liverpool": {
+    "link": "https://www.apwin.com/br/jogo/liverpool-aston-villa/bAmcO/",
+    "slug": "bAmcO",
+    "home": "Aston Villa",
+    "away": "Liverpool"
+  },
   "Manchester City x Crystal Palace": {
     "link": "https://www.apwin.com/br/jogo/manchester-city-crystal-palace/vryv/",
     "slug": "vryv",
@@ -75,53 +123,5 @@
     "slug": "olOf",
     "home": "Tottenham",
     "away": "Leeds"
-  },
-  "West Ham x Arsenal": {
-    "link": "https://www.apwin.com/br/jogo/arsenal-west-ham-united/hfRb/",
-    "slug": "hfRb",
-    "home": "West Ham",
-    "away": "Arsenal"
-  },
-  "Nottingham Forest x Newcastle": {
-    "link": "https://www.apwin.com/br/jogo/newcastle-united-nottingham-forest/ccJxX/",
-    "slug": "ccJxX",
-    "home": "Nottingham Forest",
-    "away": "Newcastle"
-  },
-  "Burnley x Aston Villa": {
-    "link": "https://www.apwin.com/br/jogo/burnley-aston-villa/XONK/",
-    "slug": "XONK",
-    "home": "Burnley",
-    "away": "Aston Villa"
-  },
-  "Crystal Palace x Everton": {
-    "link": "https://www.apwin.com/br/jogo/crystal-palace-everton/JDfY/",
-    "slug": "JDfY",
-    "home": "Crystal Palace",
-    "away": "Everton"
-  },
-  "Manchester City x Brentford": {
-    "link": "https://www.apwin.com/br/jogo/manchester-city-brentford/vrEQ/",
-    "slug": "vrEQ",
-    "home": "Manchester City",
-    "away": "Brentford"
-  },
-  "Sunderland x Manchester United": {
-    "link": "https://www.apwin.com/br/jogo/manchester-united-sunderland/btgoH/",
-    "slug": "btgoH",
-    "home": "Sunderland",
-    "away": "Manchester United"
-  },
-  "Fulham x Bournemouth": {
-    "link": "https://www.apwin.com/br/jogo/afc-bournemouth-fulham/bmaxM/",
-    "slug": "bmaxM",
-    "home": "Fulham",
-    "away": "Bournemouth"
-  },
-  "Brighton x Wolverhampton": {
-    "link": "https://www.apwin.com/br/jogo/brighton-hove-albion-wolverhampton-wanderers/cyaQl/",
-    "slug": "cyaQl",
-    "home": "Brighton",
-    "away": "Wolverhampton"
   }
 }
