@@ -19,21 +19,6 @@ Uso:
   python main.py --com-prefetch   # habilita pre-fetch em background
   python main.py --setup          # configura a planilha (1ª vez)
   python main.py --poll 10        # intervalo de polling em segundos
-
-CORREÇÕES APLICADAS
--------------------
-1. [PRINCIPAL] O daemon nunca morria silenciosamente por erro de rede ou
-   token expirado — agora o ciclo principal captura qualquer exceção,
-   registra no log e continua rodando. O status_manager reporta o erro
-   para o painel Streamlit ao invés de silenciar.
-
-2. Heartbeat: a cada HEARTBEAT_CICLOS ciclos sem mudança de campeonato/
-   partida, o daemon atualiza o campo "ultima_atividade" do status.json
-   para que o painel Streamlit saiba que o processo ainda está vivo.
-
-3. Reconexão proativa: se o SheetsManager lançar exceção em 3 tentativas
-   consecutivas de leitura de controle, o daemon reconecta o sm inteiro
-   (nova instância + conectar()) antes de continuar o loop.
 """
 
 import argparse
@@ -71,8 +56,6 @@ CAMINHO_CAMPEONATOS    = Path("data/campeonatos.json")
 DIR_MATCHES            = Path("data/matches")
 POLL_INTERVAL          = 6      # segundos entre leituras do Sheets
 PREFETCH_STATUS_A_CADA = 3      # atualiza status no Sheets a cada N partidas
-HEARTBEAT_CICLOS       = 50     # a cada N ciclos sem atividade, grava heartbeat
-ERROS_CONSECUTIVOS_MAX = 5      # reconecta o sm após N erros seguidos
 
 
 # ── Estado global ────────────────────────────────────────────────────────────
@@ -85,8 +68,6 @@ class _Estado:
         self.parar_prefetch  = threading.Event()
         self.lock            = threading.Lock()
         self.rodando: bool   = True
-        self.ciclo_count: int = 0          # FIX 2: contador para heartbeat
-        self.erros_consecutivos: int = 0   # FIX 3: contador de erros seguidos
 
 
 estado = _Estado()
@@ -101,6 +82,10 @@ def _fmt_dt(iso_str: str) -> str:
 
 
 def coletar_campeonatos() -> None:
+    """
+    Executa o scraper de campeonatos e salva em data/campeonatos.json.
+    Chamado automaticamente quando o arquivo não existe.
+    """
     log.info("campeonatos.json não encontrado — coletando automaticamente...")
     status_manager.atualizar(mensagem_status="Coletando lista de campeonatos...")
 
@@ -187,6 +172,7 @@ def _thread_prefetch(campeonato, partidas, sm, parar):
 
 
 def iniciar_prefetch(campeonato, partidas, sm):
+    """Lança a thread de pre-fetch (somente se --com-prefetch foi passado)."""
     if estado.prefetch_thread and estado.prefetch_thread.is_alive():
         log.info("[prefetch] Cancelando thread anterior...")
         estado.parar_prefetch.set()
@@ -205,6 +191,10 @@ def iniciar_prefetch(campeonato, partidas, sm):
 
 # ── Publicar partida no dashboard ────────────────────────────────────────────
 def publicar_partida(nome: str, sm) -> bool:
+    """
+    Publica as estatísticas de uma partida no dashboard do Sheets.
+    Respeita o cache: só faz requisição HTTP se o cache não existir.
+    """
     from src import cache_manager
     from src.scraper_stats import (
         buscar_pagina, extrair_info_partida, extrair_estatisticas_times,
@@ -294,42 +284,12 @@ def ciclo(sm, campeonatos: dict, habilitar_prefetch: bool) -> None:
         status_manager.atualizar(estado="rodando", comando="",
                                   mensagem_status="Retomando execução...")
 
-    # FIX 2 — Heartbeat: mantém o painel Streamlit informado mesmo sem mudanças
-    estado.ciclo_count += 1
-    if estado.ciclo_count % HEARTBEAT_CICLOS == 0:
-        status_manager.atualizar(
-            estado="rodando",
-            ultima_atividade=datetime.now().isoformat(),
-            mensagem_status=(
-                f"Monitorando — campeonato: '{estado.campeonato or 'nenhum'}' "
-                f"| partida: '{estado.partida or 'nenhuma'}'"
-            ),
-        )
-
     # ── Leitura da planilha ──
     try:
         campeonato_atual, partida_atual = sm.ler_controle()
-        # FIX 3 — zera o contador de erros após leitura bem-sucedida
-        estado.erros_consecutivos = 0
     except Exception as e:
-        estado.erros_consecutivos += 1
-        log.warning(
-            f"Falha ao ler controle ({estado.erros_consecutivos}/"
-            f"{ERROS_CONSECUTIVOS_MAX}): {e}"
-        )
+        log.warning(f"Falha ao ler controle: {e}")
         status_manager.atualizar(mensagem_status=f"Erro ao ler controle: {e}")
-
-        # FIX 3 — reconecta o SheetsManager após erros consecutivos
-        if estado.erros_consecutivos >= ERROS_CONSECUTIVOS_MAX:
-            log.warning("Muitos erros seguidos — reconectando SheetsManager...")
-            try:
-                sm.conectar()
-                estado.erros_consecutivos = 0
-                log.info("SheetsManager reconectado com sucesso.")
-                status_manager.atualizar(
-                    mensagem_status="Reconectado ao Google Sheets.")
-            except Exception as re:
-                log.error(f"Reconexão falhou: {re}")
         return
 
     # ── Mudança de campeonato ────────────────────────────────────────────────
@@ -346,6 +306,7 @@ def ciclo(sm, campeonatos: dict, habilitar_prefetch: bool) -> None:
         sm.atualizar_status(f"⏳ Coletando partidas de '{campeonato_atual}'...")
 
         try:
+            # Coleta apenas a lista de partidas — sem buscar stats ainda
             partidas = obter_partidas(
                 campeonato_atual, campeonatos[campeonato_atual], DIR_MATCHES)
         except Exception as e:
@@ -359,6 +320,7 @@ def ciclo(sm, campeonatos: dict, habilitar_prefetch: bool) -> None:
         from src import cache_manager
         n_cache = cache_manager.total_cacheado(partidas)
 
+        # Atualiza dropdown de partidas e contador de cache na planilha
         sm.atualizar_lista_partidas(list(partidas.keys()), campeonato_atual,
                                     coleta_ts, n_cache=n_cache)
 
@@ -380,6 +342,7 @@ def ciclo(sm, campeonatos: dict, habilitar_prefetch: bool) -> None:
             f"✓ {len(partidas)} partidas carregadas | {n_cache} já em cache. "
             f"Selecione uma partida em C4.", "ok")
 
+        # Pre-fetch apenas se explicitamente habilitado
         if habilitar_prefetch:
             iniciar_prefetch(campeonato_atual, partidas, sm)
 
@@ -395,6 +358,7 @@ def ciclo(sm, campeonatos: dict, habilitar_prefetch: bool) -> None:
         )
         with estado.lock:
             estado.partida = partida_atual
+        # Stats coletadas somente aqui — sob demanda
         publicar_partida(partida_atual, sm)
 
 
@@ -429,6 +393,7 @@ def main():
                         help="Habilita pre-fetch de stats em background após selecionar campeonato")
     args = parser.parse_args()
 
+    # Garante que campeonatos.json existe (coleta se necessário)
     campeonatos = carregar_campeonatos()
 
     from src.sheets_manager import SheetsManager
@@ -467,11 +432,9 @@ def main():
         try:
             ciclo(sm, campeonatos, habilitar_prefetch)
         except Exception as e:
-            # FIX 1 — nunca deixa o loop morrer silenciosamente
-            log.exception(f"Erro inesperado no ciclo (daemon continua): {e}")
-            status_manager.atualizar(
-                mensagem_status=f"⚠ Erro no ciclo (continuando): {e}")
+            log.exception(f"Erro inesperado no ciclo: {e}")
 
+        # Dorme em pequenos intervalos para responder a SIGINT rapidamente
         for _ in range(intervalo * 2):
             if not estado.rodando:
                 break
