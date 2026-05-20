@@ -229,10 +229,15 @@ def publicar_partida(nome: str, sm) -> bool:
         from src.scraper_stats import get_stat
         from src.de_finetti   import parse_xg
 
-        xg_m_str = get_stat(cached["stats_m"], "xG")
-        xg_v_str = get_stat(cached["stats_v"], "xG")
-        xg_m     = parse_xg(xg_m_str)
-        xg_v     = parse_xg(xg_v_str)
+        # Usa xG posicional: mandante → coluna "casa" (2), visitante → "fora" (3).
+        # Fallback para xG geral (coluna 1) se a coluna posicional estiver vazia.
+        xg_m_str = get_stat(cached["stats_m"], "xG", coluna=2) \
+                   or get_stat(cached["stats_m"], "xG", coluna=1)
+        xg_v_str = get_stat(cached["stats_v"], "xG", coluna=3) \
+                   or get_stat(cached["stats_v"], "xG", coluna=1)
+
+        xg_m = parse_xg(xg_m_str)
+        xg_v = parse_xg(xg_v_str)
 
         if xg_m is not None and xg_v is not None:
             sm.escrever_de_finetti(cached["info"], xg_m, xg_v)

@@ -1,10 +1,3 @@
-"""
-src/scraper_stats.py
-====================
-Coleta e extrai as estatísticas de uma partida específica do APWin.
-Todas as funções são puras (recebem BeautifulSoup, retornam dados).
-"""
-
 import json
 import logging
 from datetime import datetime
@@ -118,11 +111,13 @@ def extrair_classificacao(soup: BeautifulSoup) -> tuple[list, list, list]:
 # Utilitário
 # ---------------------------------------------------------------------------
 
-def get_stat(tabela: list[list[str]], nome: str) -> str:
-    """Busca o valor geral de uma métrica em uma tabela de stats."""
+def get_stat(tabela: list[list[str]], nome: str, coluna: int = 1) -> str:
+    """
+    Busca o valor de uma métrica em uma tabela de stats.
+    """
     for row in tabela:
         if row and row[0] == nome:
-            return row[1] if len(row) > 1 else ""
+            return row[coluna] if len(row) > coluna else ""
     return ""
 
 

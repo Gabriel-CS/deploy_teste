@@ -1,27 +1,3 @@
-"""
-src/de_finetti.py
-=================
-Cálculo da Distância de De Finetti para partidas de futebol.
-
-Fluxo:
-  xG (mandante e visitante)
-    └─► distribuição Poisson P(k gols), k ∈ {0,...,MAX_GOLS}
-          └─► matriz de placares  (produto cartesiano das distribuições)
-                └─► P(vitória M), P(empate), P(vitória V)
-                      └─► Distância de De Finetti para cada resultado
-
-A distância de De Finetti mede o "custo de surpresa" de um vetor de
-probabilidades p = (p1, p2, p3) em relação ao vértice do simplex
-correspondente a cada desfecho possível.
-
-  d(resultado=i) = Σ_j (p_j - e_ij)²
-
-onde e_ij é o vetor indicador do resultado i (1 se j==i, 0 caso contrário).
-
-Referência: de Finetti, B. (1962). Does it make sense to speak of 'good
-probability appraisers'? In I. J. Good (Ed.), The Scientist Speculates.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -57,14 +33,6 @@ class DistanciaFinetti(NamedTuple):
 def distribuicao_poisson(xg: float, max_gols: int = MAX_GOLS) -> list[float]:
     """
     Retorna P(X = k) para k = 0, 1, …, max_gols, dado X ~ Poisson(λ=xg).
-
-    Args:
-        xg:       Gols esperados (λ). Deve ser > 0; valores ≤ 0 são
-                  tratados como 0.01 para evitar colapso da distribuição.
-        max_gols: Limite superior de gols considerados (padrão 5).
-
-    Returns:
-        Lista de floats com comprimento max_gols + 1.
     """
     lam = max(xg, 0.01)
     probs: list[float] = []
@@ -93,11 +61,6 @@ def matriz_placares(
 ) -> list[list[float]]:
     """
     Monta a matriz de probabilidades de placares (MAX_GOLS+1 × MAX_GOLS+1).
-
-    matriz[i][j] = P(mandante marca i gols) × P(visitante marca j gols)
-
-    Linhas → gols do mandante (0–5)
-    Colunas → gols do visitante (0–5)
     """
     n = len(probs_m)
     return [[probs_m[i] * probs_v[j] for j in range(n)] for i in range(n)]
@@ -110,10 +73,6 @@ def matriz_placares(
 def probabilidades_resultado(mat: list[list[float]]) -> ProbabilidadesResultado:
     """
     A partir da matriz de placares, calcula P(mandante), P(empate), P(visitante).
-
-    - Diagonal principal (i == j)        → empate
-    - Triângulo inferior (i > j)         → mandante vence
-    - Triângulo superior (i < j)         → visitante vence
     """
     n = len(mat)
     p_m = p_e = p_v = 0.0
@@ -145,14 +104,6 @@ def probabilidades_resultado(mat: list[list[float]]) -> ProbabilidadesResultado:
 def distancia_finetti(probs: ProbabilidadesResultado) -> DistanciaFinetti:
     """
     Calcula a distância de De Finetti para cada possível desfecho.
-
-    Para um vetor p = (p1, p2, p3) e o vértice e_i do simplex:
-        d(e_i) = Σ_j (p_j - e_ij)²
-
-    Onde e_ij = 1 se j == i, else 0.
-
-    Interpretação: quanto menor d(e_i), mais o forecaster "apostou" naquele
-    resultado; quanto maior, mais "surpreendido" ficaria se ele ocorresse.
     """
     p1, p2, p3 = probs.mandante, probs.empate, probs.visitante
 
@@ -185,13 +136,6 @@ class ResultadoFinetti(NamedTuple):
 def calcular(xg_m: float, xg_v: float) -> ResultadoFinetti:
     """
     Pipeline completo: xG → Poisson → matriz → probs → distância.
-
-    Args:
-        xg_m: xG do mandante (time da casa)
-        xg_v: xG do visitante (time de fora)
-
-    Returns:
-        ResultadoFinetti com todos os dados intermediários e finais.
     """
     probs_m = distribuicao_poisson(xg_m)
     probs_v = distribuicao_poisson(xg_v)
@@ -223,8 +167,7 @@ def calcular(xg_m: float, xg_v: float) -> ResultadoFinetti:
 
 def parse_xg(valor: str) -> float | None:
     """
-    Converte a string de xG vinda do scraper (ex: '1.45', '1,45', '--')
-    para float. Retorna None se não for possível converter.
+    Converte a string de xG vinda do scraper
     """
     if not valor or valor in ("--", "N/A", "-", ""):
         return None

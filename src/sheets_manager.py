@@ -883,12 +883,6 @@ class SheetsManager:
     def escrever_de_finetti(self, info: dict, xg_m: float, xg_v: float) -> None:
         """
         Calcula e publica a análise de De Finetti na aba 'de_finetti'.
-
-        Args:
-            info:  dicionário com 'mandante', 'visitante', 'campeonato',
-                   'data_hora' (mesmo formato de escrever_dashboard)
-            xg_m:  xG do mandante (float > 0)
-            xg_v:  xG do visitante (float > 0)
         """
         from src.de_finetti import calcular, MAX_GOLS
 
